@@ -1,99 +1,23 @@
-import gzip
-import json
 import os
-from contextlib import asynccontextmanager
-from numbers import Integral
+import sqlite3
+import zlib
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from shapely.geometry import shape, Point
-from shapely.strtree import STRtree
+from shapely.geometry import Point
+from shapely import wkb
 
 
-GEOJSON_FILE = "data/wards_full.geojson.gz"
-
-# Nếu muốn khóa API bằng mật khẩu, sau này đặt API_KEY trên Render.
-# Nếu không đặt API_KEY thì API sẽ public.
+DB_FILE = Path("data/wards_lookup.sqlite")
 API_KEY = os.getenv("API_KEY")
-
-
-geometries = []
-properties = []
-tree = None
-geom_id_to_index = {}
-
-
-def read_geojson(path):
-    if path.endswith(".gz"):
-        with gzip.open(path, "rt", encoding="utf-8") as f:
-            return json.load(f)
-
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def pick(props, *names):
-    """
-    Lấy field theo nhiều tên khác nhau.
-    Lý do: QGIS đôi khi đặt tên cột hơi khác hoặc thêm prefix.
-    """
-    for name in names:
-        if name in props and props[name] not in [None, ""]:
-            return props[name]
-
-    for name in names:
-        name_lower = name.lower()
-        for k, v in props.items():
-            if k.lower().endswith(name_lower) and v not in [None, ""]:
-                return v
-
-    return None
-
-
-def get_index_from_tree_item(item):
-    """
-    Shapely 2.x: STRtree trả về index.
-    Shapely 1.x: STRtree trả về geometry.
-    Hàm này xử lý cả hai.
-    """
-    if isinstance(item, Integral):
-        return int(item)
-
-    return geom_id_to_index[id(item)]
-
-
-def load_data():
-    global geometries, properties, tree, geom_id_to_index
-
-    print("Loading wards_full.geojson.gz...")
-
-    data = read_geojson(GEOJSON_FILE)
-
-    for feature in data["features"]:
-        geom = shape(feature["geometry"])
-        props = feature.get("properties", {})
-
-        geometries.append(geom)
-        properties.append(props)
-
-    tree = STRtree(geometries)
-    geom_id_to_index = {id(g): i for i, g in enumerate(geometries)}
-
-    print(f"Loaded {len(geometries)} ward geometries.")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    load_data()
-    yield
 
 
 app = FastAPI(
     title="Vietnam Ward Lookup API",
     description="Tra cứu tọa độ lat/lon thuộc xã/phường và tỉnh/thành nào.",
-    version="1.0.0",
-    lifespan=lifespan,
+    version="2.1.0",
 )
 
 
@@ -106,10 +30,17 @@ app.add_middleware(
 )
 
 
+def get_conn():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 @app.get("/")
 def home():
     return {
         "message": "Vietnam Ward Lookup API",
+        "version": "sqlite-compressed-wkb",
         "example": "/lookup?lat=10.7769&lon=106.7009",
         "docs": "/docs",
     }
@@ -117,9 +48,19 @@ def home():
 
 @app.get("/health")
 def health():
+    if not DB_FILE.exists():
+        return {
+            "status": "error",
+            "message": f"Không thấy database: {DB_FILE}",
+        }
+
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) AS n FROM wards").fetchone()["n"]
+
     return {
         "status": "ok",
-        "ward_count": len(geometries),
+        "database": str(DB_FILE),
+        "ward_count": total,
     }
 
 
@@ -138,35 +79,38 @@ def lookup(
     if not (-180 <= lon <= 180):
         raise HTTPException(status_code=400, detail="lon không hợp lệ")
 
-    # Cực kỳ quan trọng:
-    # Người dùng gửi lat/lon,
-    # nhưng GIS/Shapely phải tạo điểm theo thứ tự lon, lat.
     point = Point(lon, lat)
 
-    candidates = tree.query(point)
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT *
+            FROM wards
+            WHERE
+                minx <= ?
+                AND maxx >= ?
+                AND miny <= ?
+                AND maxy >= ?
+        """, (lon, lon, lat, lat)).fetchall()
+
     matches = []
 
-    for item in candidates:
-        idx = get_index_from_tree_item(item)
-        geom = geometries[idx]
+    for row in rows:
+        geom_wkb = zlib.decompress(row["geom_wkb_zlib"])
+        geom = wkb.loads(geom_wkb)
 
-        # covers tính cả điểm nằm đúng trên ranh giới.
         if geom.covers(point):
-            props = properties[idx]
-
             matches.append({
-    "ward_code": pick(props, "ward_code", "code", "Code"),
-    "ward_name": pick(props, "ward_name", "name", "Name"),
-    "ward_name_en": pick(props, "ward_name_en", "name_en", "NameEn"),
-    "ward_full_name": pick(props, "ward_full_name", "full_name", "FullName"),
-    "ward_full_name_en": pick(props, "ward_full_name_en", "full_name_en", "FullNameEn"),
-
-    "province_code": pick(props, "province_code", "ProvinceCode"),
-    "province_name": pick(props, "province_name"),
-    "province_name_en": pick(props, "province_name_en"),
-    "province_full_name": pick(props, "province_full_name"),
-    "province_full_name_en": pick(props, "province_full_name_en"),
-})
+                "ward_code": row["ward_code"],
+                "ward_name": row["ward_name"],
+                "ward_name_en": row["ward_name_en"],
+                "ward_full_name": row["ward_full_name"],
+                "ward_full_name_en": row["ward_full_name_en"],
+                "province_code": row["province_code"],
+                "province_name": row["province_name"],
+                "province_name_en": row["province_name_en"],
+                "province_full_name": row["province_full_name"],
+                "province_full_name_en": row["province_full_name_en"],
+            })
 
     if not matches:
         return {
@@ -175,6 +119,7 @@ def lookup(
                 "lat": lat,
                 "lon": lon,
             },
+            "candidate_count": len(rows),
             "message": "Không tìm thấy xã/tỉnh chứa điểm này. Có thể điểm nằm ngoài Việt Nam hoặc lat/lon bị nhập ngược.",
         }
 
@@ -184,6 +129,7 @@ def lookup(
             "lat": lat,
             "lon": lon,
         },
+        "candidate_count": len(rows),
         "match_count": len(matches),
         "result": matches[0],
         "all_matches": matches,

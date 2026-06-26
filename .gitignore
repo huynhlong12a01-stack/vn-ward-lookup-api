@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .env
 data/wards_full.geojson
+data/wards_full.geojson.gz	
