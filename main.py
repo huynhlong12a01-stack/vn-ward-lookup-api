@@ -1,7 +1,6 @@
 import os
 import sqlite3
 import zlib
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -19,7 +18,7 @@ API_KEY = os.getenv("API_KEY")
 app = FastAPI(
     title="Vietnam Ward Lookup API",
     description="Tra cứu tọa độ lat/lon thuộc xã/phường và tỉnh/thành nào.",
-    version="2.4.0",
+    version="2.5.0-no-cache",
 )
 
 
@@ -52,6 +51,14 @@ def validate_lat_lon(lat: float, lon: float):
 
 
 def lookup_core(lat: float, lon: float):
+    """
+    Không dùng cache.
+
+    Mỗi request:
+    1. Lọc bbox trong SQLite.
+    2. Chỉ giải nén polygon ứng viên.
+    3. Kiểm tra điểm nằm trong polygon.
+    """
     point = Point(lon, lat)
 
     with get_conn() as conn:
@@ -89,95 +96,25 @@ def lookup_core(lat: float, lon: float):
     return rows, matches
 
 
-@lru_cache(maxsize=50000)
-def lookup_text_cached(lat_key: str, lon_key: str):
-    """
-    Trả về:
-    Sai Gon|Ho Chi Minh
-    """
-    lat = float(lat_key)
-    lon = float(lon_key)
-
-    _, matches = lookup_core(lat, lon)
+def get_first_result(lat: float, lon: float):
+    rows, matches = lookup_core(lat, lon)
 
     if not matches:
-        return "NOT_FOUND"
+        return rows, None
 
-    result = matches[0]
-
-    ward_en = (
-        result.get("ward_name_en")
-        or result.get("ward_name")
-        or ""
-    )
-
-    province_en = (
-        result.get("province_name_en")
-        or result.get("province_name")
-        or ""
-    )
-
-    return f"{ward_en}|{province_en}"
-
-
-@lru_cache(maxsize=50000)
-def lookup_ward_text_cached(lat_key: str, lon_key: str):
-    """
-    Trả về:
-    Sai Gon
-    """
-    lat = float(lat_key)
-    lon = float(lon_key)
-
-    _, matches = lookup_core(lat, lon)
-
-    if not matches:
-        return "NOT_FOUND"
-
-    result = matches[0]
-
-    return (
-        result.get("ward_name_en")
-        or result.get("ward_name")
-        or "NOT_FOUND"
-    )
-
-
-@lru_cache(maxsize=50000)
-def lookup_province_text_cached(lat_key: str, lon_key: str):
-    """
-    Trả về:
-    Ho Chi Minh
-
-    Không trả:
-    Ho Chi Minh City
-    """
-    lat = float(lat_key)
-    lon = float(lon_key)
-
-    _, matches = lookup_core(lat, lon)
-
-    if not matches:
-        return "NOT_FOUND"
-
-    result = matches[0]
-
-    return (
-        result.get("province_name_en")
-        or result.get("province_name")
-        or "NOT_FOUND"
-    )
+    return rows, matches[0]
 
 
 @app.get("/")
 def home():
     return {
         "message": "Vietnam Ward Lookup API",
-        "version": "sqlite-compressed-wkb-cache-short-province",
+        "version": "sqlite-compressed-wkb-no-cache",
         "json_example": "/lookup?lat=10.7769&lon=106.7009",
         "text_example": "/lookup_text?lat=10.7769&lon=106.7009",
         "ward_text_example": "/lookup_ward_text?lat=10.7769&lon=106.7009",
         "province_text_example": "/lookup_province_text?lat=10.7769&lon=106.7009",
+        "cache": "disabled",
         "docs": "/docs",
     }
 
@@ -188,6 +125,7 @@ def health():
         return {
             "status": "error",
             "message": f"Không thấy database: {DB_FILE}",
+            "cache": "disabled",
         }
 
     with get_conn() as conn:
@@ -197,18 +135,7 @@ def health():
         "status": "ok",
         "database": str(DB_FILE),
         "ward_count": total,
-        "lookup_text_cache": lookup_text_cached.cache_info()._asdict(),
-        "lookup_ward_text_cache": lookup_ward_text_cached.cache_info()._asdict(),
-        "lookup_province_text_cache": lookup_province_text_cached.cache_info()._asdict(),
-    }
-
-
-@app.get("/cache_status")
-def cache_status():
-    return {
-        "lookup_text_cache": lookup_text_cached.cache_info()._asdict(),
-        "lookup_ward_text_cache": lookup_ward_text_cached.cache_info()._asdict(),
-        "lookup_province_text_cache": lookup_province_text_cached.cache_info()._asdict(),
+        "cache": "disabled",
     }
 
 
@@ -255,23 +182,39 @@ def lookup_text(
     key: Optional[str] = Query(None, description="API key nếu có bật"),
 ):
     """
-    Endpoint dành cho Excel WEBSERVICE.
+    Trả text gọn cho Excel/HTML:
 
-    Trả text gọn:
     Sai Gon|Ho Chi Minh
     """
     validate_key(key)
     validate_lat_lon(lat, lon)
 
-    lat_key = f"{lat:.6f}"
-    lon_key = f"{lon:.6f}"
+    _, result = get_first_result(lat, lon)
 
-    text = lookup_text_cached(lat_key, lon_key)
+    if not result:
+        return PlainTextResponse(
+            "NOT_FOUND",
+            headers={
+                "Cache-Control": "no-store"
+            },
+        )
+
+    ward_en = (
+        result.get("ward_name_en")
+        or result.get("ward_name")
+        or ""
+    )
+
+    province_en = (
+        result.get("province_name_en")
+        or result.get("province_name")
+        or ""
+    )
 
     return PlainTextResponse(
-        text,
+        f"{ward_en}|{province_en}",
         headers={
-            "Cache-Control": "public, max-age=31536000, immutable"
+            "Cache-Control": "no-store"
         },
     )
 
@@ -291,15 +234,26 @@ def lookup_ward_text(
     validate_key(key)
     validate_lat_lon(lat, lon)
 
-    lat_key = f"{lat:.6f}"
-    lon_key = f"{lon:.6f}"
+    _, result = get_first_result(lat, lon)
 
-    text = lookup_ward_text_cached(lat_key, lon_key)
+    if not result:
+        return PlainTextResponse(
+            "NOT_FOUND",
+            headers={
+                "Cache-Control": "no-store"
+            },
+        )
+
+    ward_en = (
+        result.get("ward_name_en")
+        or result.get("ward_name")
+        or "NOT_FOUND"
+    )
 
     return PlainTextResponse(
-        text,
+        ward_en,
         headers={
-            "Cache-Control": "public, max-age=31536000, immutable"
+            "Cache-Control": "no-store"
         },
     )
 
@@ -322,15 +276,26 @@ def lookup_province_text(
     validate_key(key)
     validate_lat_lon(lat, lon)
 
-    lat_key = f"{lat:.6f}"
-    lon_key = f"{lon:.6f}"
+    _, result = get_first_result(lat, lon)
 
-    text = lookup_province_text_cached(lat_key, lon_key)
+    if not result:
+        return PlainTextResponse(
+            "NOT_FOUND",
+            headers={
+                "Cache-Control": "no-store"
+            },
+        )
+
+    province_en = (
+        result.get("province_name_en")
+        or result.get("province_name")
+        or "NOT_FOUND"
+    )
 
     return PlainTextResponse(
-        text,
+        province_en,
         headers={
-            "Cache-Control": "public, max-age=31536000, immutable"
+            "Cache-Control": "no-store"
         },
     )
 
@@ -341,15 +306,12 @@ def lookup_ward(
     lon: float = Query(..., description="Longitude / kinh độ"),
     key: Optional[str] = Query(None, description="API key nếu có bật"),
 ):
-    """
-    JSON chỉ trả thông tin xã/phường.
-    """
     validate_key(key)
     validate_lat_lon(lat, lon)
 
-    rows, matches = lookup_core(lat, lon)
+    rows, result = get_first_result(lat, lon)
 
-    if not matches:
+    if not result:
         return {
             "found": False,
             "input": {
@@ -359,8 +321,6 @@ def lookup_ward(
             "candidate_count": len(rows),
             "message": "Không tìm thấy xã/phường chứa điểm này.",
         }
-
-    result = matches[0]
 
     return {
         "found": True,
@@ -384,21 +344,12 @@ def lookup_province(
     lon: float = Query(..., description="Longitude / kinh độ"),
     key: Optional[str] = Query(None, description="API key nếu có bật"),
 ):
-    """
-    JSON chỉ trả thông tin tỉnh/thành.
-
-    Tên tiếng Anh dùng province_name_en:
-    Ho Chi Minh
-
-    Không dùng province_full_name_en:
-    Ho Chi Minh City
-    """
     validate_key(key)
     validate_lat_lon(lat, lon)
 
-    rows, matches = lookup_core(lat, lon)
+    rows, result = get_first_result(lat, lon)
 
-    if not matches:
+    if not result:
         return {
             "found": False,
             "input": {
@@ -408,8 +359,6 @@ def lookup_province(
             "candidate_count": len(rows),
             "message": "Không tìm thấy tỉnh/thành chứa điểm này.",
         }
-
-    result = matches[0]
 
     return {
         "found": True,
