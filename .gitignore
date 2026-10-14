@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
 .env
+*.bak
+*.tmp
 data/wards_full.geojson
-data/wards_full.geojson.gz	
+data/wards_full.geojson.gz
+data/*.zip

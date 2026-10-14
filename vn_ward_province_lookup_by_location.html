@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tra cứu xã/tỉnh</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;background:#f6f8fb;color:#111827}
+    .wrap{max-width:1040px;margin:0 auto;padding:16px}
+    .sticky-panel{position:sticky;top:0;z-index:30;background:#f6f8fb;padding:12px 0;border-bottom:1px solid #d8dee9}
+    .panel-inner{background:white;border:1px solid #d8dee9;border-radius:10px;padding:12px}
+    h2{margin:0 0 10px;font-size:20px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button{padding:8px 12px;border:0;border-radius:6px;background:#1565c0;color:white;font-weight:bold;cursor:pointer;white-space:nowrap}
+    button.secondary{background:#e5edf7;color:#14345c}
+    button.danger{background:#fee2e2;color:#991b1b}
+    button.icon{width:38px;height:34px;padding:0;font-size:20px;line-height:1;background:#e5edf7;color:#14345c}
+    button.row-call{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;padding:0;font-size:17px;background:#e5edf7;color:#14345c;margin-right:4px}
+    button.small{padding:6px 9px;font-size:12px}
+    button.copied{background:#16a34a!important;color:white!important}
+    button:disabled{opacity:.35;cursor:not-allowed}
+    .status{color:#6b7280;font-size:13px;margin-left:4px}
+    .loading-panel{display:none;align-items:center;gap:10px;margin-top:10px;padding:9px 11px;border-radius:7px;background:#eef5ff;color:#174a7e;font-size:13px}
+    .loading-panel.show{display:flex}
+    .spinner{width:18px;height:18px;border:3px solid #bdd5ef;border-top-color:#1565c0;border-radius:50%;animation:spin .8s linear infinite;flex:0 0 auto}
+    .loading-content{flex:1;min-width:0}
+    .loading-message{font-weight:bold}
+    .loading-subtext{margin-top:2px;color:#56708e;font-size:12px}
+    .progress-track{height:3px;margin-top:7px;overflow:hidden;border-radius:3px;background:#cddff2}
+    .progress-bar{width:35%;height:100%;border-radius:3px;background:#1565c0;animation:slide 1.2s ease-in-out infinite}
+    .row-spinner{display:inline-block;width:13px;height:13px;margin-right:5px;border:2px solid #f3d39b;border-top-color:#b45309;border-radius:50%;vertical-align:-2px;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slide{0%{transform:translateX(-120%)}50%{transform:translateX(190%)}100%{transform:translateX(420%)}}
+    .table-box{background:white;border:1px solid #d8dee9;border-radius:10px;margin-top:14px;overflow-x:auto;overflow-y:visible}
+    table{width:100%;min-width:980px;border-collapse:collapse;background:white;user-select:text;-webkit-user-select:text}
+    th,td{border:1px solid #cfd8e3;padding:8px;min-height:24px;text-align:left;vertical-align:top;user-select:text;-webkit-user-select:text}
+    th{position:sticky;top:0;z-index:20;background:#eaf1f8;font-weight:bold}
+    td.lat,td.lon{background:#fffdf2}
+    td.lat:focus-within,td.lon:focus-within{background:#fff7cc}
+    .coord-input{display:block;width:100%;min-height:24px;line-height:24px;background:transparent;outline:none;padding:0;margin:0}
+    td.invalid{background:#fee2e2!important;color:#991b1b}
+    td.invalid .coord-input{background:transparent!important;color:#991b1b}
+    .cell-note{font-size:11px;color:#b91c1c;margin-top:3px;line-height:1.25;min-height:13px}
+    .index{width:44px;text-align:center;color:#6b7280;vertical-align:middle}
+    .lat,.lon{width:145px}
+    .province,.ward{width:230px}
+    .row-actions{width:120px;text-align:center;vertical-align:middle;user-select:none}
+    .not-found{color:#b91c1c}.loading{color:#b45309}.ok{color:#166534}.api-error{color:#b91c1c;font-weight:bold}
+    .skipped{color:#6b7280}
+    .note{font-size:12px;color:#6b7280;margin-top:8px;line-height:1.45}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sticky-panel">
+      <div class="panel-inner">
+        <h2>Tra cứu xã/tỉnh từ Lat Lon</h2>
+        <div class="actions">
+          <button id="lookupBtn">Tra cứu</button>
+          <button id="retryErrorsBtn" class="secondary" disabled>Gọi lại dòng lỗi API</button>
+          <button id="addRowBtn" class="secondary">Thêm dòng</button>
+          <button id="copyAllBtn" class="secondary">Copy toàn bộ</button>
+          <button id="undoBtn" class="icon" title="Undo - Ctrl+Z" aria-label="Undo">↶</button>
+          <button id="redoBtn" class="icon" title="Redo - Ctrl+Y" aria-label="Redo">↷</button>
+          <span id="statusText" class="status">Sẵn sàng.</span>
+        </div>
+        <div id="loadingPanel" class="loading-panel" aria-live="polite">
+          <div class="spinner"></div>
+          <div class="loading-content">
+            <div id="loadingMessage" class="loading-message">Đang xử lý...</div>
+            <div id="loadingSubtext" class="loading-subtext">Vui lòng chờ.</div>
+            <div class="progress-track"><div class="progress-bar"></div></div>
+          </div>
+        </div>
+        <div class="note">
+          Tối đa 3000 dòng. Lat hợp lệ khoảng 8–24, Lon hợp lệ khoảng 102–110.
+          Không chặn nhập liệu; ô sai sẽ tô đỏ và báo “Không hợp lệ” hoặc “Nằm ngoài Việt Nam”.
+          Nút Tra cứu và nút ↻ từng dòng chỉ bật khi có Lat/Lon hợp lệ. Khi máy chủ đang khởi động hoặc xử lý, ứng dụng sẽ hiện hiệu ứng loading và thời gian đã chờ. API lỗi tự gọi lại tối đa 200 lần.
+        </div>
+      </div>
+    </div>
+
+    <div class="table-box">
+      <table id="lookupTable">
+        <thead>
+          <tr>
+            <th class="index">#</th>
+            <th class="lat">Lat</th>
+            <th class="lon">Lon</th>
+            <th class="province">Tỉnh</th>
+            <th class="ward">Xã / Phường</th>
+            <th class="row-actions">Gọi/Xóa</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+const API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ? window.location.origin
+  : "https://vn-ward-lookup-api.onrender.com";
+const DEFAULT_ROWS=5;
+const MAX_ROWS=3000;
+const DELAY_MS=250;
+const RETRY_DELAY_MS=350;
+const MAX_API_RETRIES=200;
+const LIMITS={lat:{min:8,max:24,label:"Lat"},lon:{min:102,max:110,label:"Lon"}};
+
+const tbody=document.getElementById("tbody");
+const lookupTable=document.getElementById("lookupTable");
+const lookupBtn=document.getElementById("lookupBtn");
+const retryErrorsBtn=document.getElementById("retryErrorsBtn");
+const addRowBtn=document.getElementById("addRowBtn");
+const copyAllBtn=document.getElementById("copyAllBtn");
+const undoBtn=document.getElementById("undoBtn");
+const redoBtn=document.getElementById("redoBtn");
+const statusText=document.getElementById("statusText");
+const loadingPanel=document.getElementById("loadingPanel");
+const loadingMessage=document.getElementById("loadingMessage");
+const loadingSubtext=document.getElementById("loadingSubtext");
+
+let undoStack=[];
+let redoStack=[];
+let editSnapshot=null;
+let isRestoring=false;
+let isRunning=false;
+let loadingStartedAt=0;
+let loadingTimer=null;
+
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function setStatus(text){statusText.textContent=text;}
+
+function startLoading(message,subtext){
+  loadingStartedAt=Date.now();
+  loadingMessage.textContent=message||"Đang xử lý...";
+  loadingSubtext.dataset.base=subtext||"Vui lòng chờ.";
+  loadingSubtext.textContent=loadingSubtext.dataset.base+" • Đã chờ 0 giây";
+  loadingPanel.classList.add("show");
+
+  clearInterval(loadingTimer);
+  loadingTimer=setInterval(()=>{
+    const seconds=Math.floor((Date.now()-loadingStartedAt)/1000);
+    loadingSubtext.textContent=(loadingSubtext.dataset.base||"Vui lòng chờ.")+" • Đã chờ "+seconds+" giây";
+  },1000);
+}
+
+function updateLoading(message,subtext){
+  if(message)loadingMessage.textContent=message;
+  if(subtext)loadingSubtext.dataset.base=subtext;
+  const seconds=Math.floor((Date.now()-loadingStartedAt)/1000);
+  loadingSubtext.textContent=(loadingSubtext.dataset.base||"Vui lòng chờ.")+" • Đã chờ "+seconds+" giây";
+}
+
+function stopLoading(){
+  clearInterval(loadingTimer);
+  loadingTimer=null;
+  loadingPanel.classList.remove("show");
+  loadingSubtext.dataset.base="";
+}
+
+function makeRowElement(rowNumber){
+  const tr=document.createElement("tr");
+  tr.dataset.status="";
+  tr.innerHTML=`
+    <td class="index">${rowNumber}</td>
+    <td class="lat" data-type="lat"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
+    <td class="lon" data-type="lon"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
+    <td class="province"></td>
+    <td class="ward"></td>
+    <td class="row-actions">
+      <button class="row-call call-row" type="button" title="Gọi API dòng này" aria-label="Gọi API dòng này" disabled>↻</button>
+      <button class="small danger delete-row" type="button">Xóa</button>
+    </td>`;
+  return tr;
+}
+
+function getRows(){
+  return Array.from(tbody.querySelectorAll("tr")).map(tr=>({
+    tr,
+    latCell:tr.querySelector(".lat"),
+    lonCell:tr.querySelector(".lon"),
+    latInput:tr.querySelector(".lat .coord-input"),
+    lonInput:tr.querySelector(".lon .coord-input"),
+    latNote:tr.querySelector(".lat .cell-note"),
+    lonNote:tr.querySelector(".lon .cell-note"),
+    provinceCell:tr.querySelector(".province"),
+    wardCell:tr.querySelector(".ward"),
+    callBtn:tr.querySelector(".call-row"),
+    deleteBtn:tr.querySelector(".delete-row")
+  }));
+}
+
+function getCoordText(input){return (input.textContent||"").trim();}
+function cleanNumberText(text){return String(text||"").trim().replace(",",".");}
+function parseNumber(text){return Number(cleanNumberText(text));}
+
+function rowToArray(row){
+  return [getCoordText(row.latInput),getCoordText(row.lonInput),row.provinceCell.textContent.trim(),row.wardCell.textContent.trim()];
+}
+
+function rowsToTsv(rows,includeHeader=true){
+  const lines=[];
+  if(includeHeader)lines.push(["Lat","Lon","Tỉnh","Xã / Phường"].join("\t"));
+  rows.forEach(row=>{
+    const arr=rowToArray(row);
+    if(arr.some(v=>v!==""))lines.push(arr.join("\t"));
+  });
+  return lines.join("\n");
+}
+
+function flashCopyButton(){
+  const oldText=copyAllBtn.textContent;
+  copyAllBtn.textContent="Đã copy ✓";
+  copyAllBtn.classList.add("copied");
+  setTimeout(()=>{copyAllBtn.textContent=oldText;copyAllBtn.classList.remove("copied");},1200);
+}
+
+async function copyText(text,message){
+  if(!text){setStatus("Không có nội dung để copy.");return false;}
+  let ok=false;
+  try{
+    if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);ok=true;}
+  }catch(e){ok=false;}
+  if(!ok){
+    const ta=document.createElement("textarea");
+    ta.value=text;ta.style.position="fixed";ta.style.left="-9999px";ta.style.top="0";
+    document.body.appendChild(ta);ta.focus();ta.select();
+    try{ok=document.execCommand("copy");}catch(e){ok=false;}
+    document.body.removeChild(ta);
+  }
+  if(ok){setStatus(message||"Đã copy nội dung.");flashCopyButton();}
+  else setStatus("Không copy được. Hãy thử Ctrl+C sau khi tô đen.");
+  return ok;
+}
+
+function copyAllRows(){
+  const rows=getRows();
+  const rowsWithData=rows.filter(row=>rowToArray(row).some(v=>v!==""));
+  const text=rowsToTsv(rowsWithData.length?rowsWithData:rows,true);
+  copyText(text,"Đã copy toàn bộ "+(rowsWithData.length||rows.length)+" dòng.");
+}
+
+function nodeInsideTable(node){
+  if(!node)return false;
+  const el=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+  return !!(el&&lookupTable.contains(el));
+}
+function safeIntersects(range,node){try{return range.intersectsNode(node);}catch(e){return false;}}
+function getSelectedRowsInTable(){
+  const sel=window.getSelection();
+  if(!sel||sel.rangeCount===0||sel.isCollapsed)return [];
+  const range=sel.getRangeAt(0);
+  if(!nodeInsideTable(range.startContainer)&&!nodeInsideTable(range.endContainer)&&!safeIntersects(range,lookupTable))return [];
+  const selected=[];
+  getRows().forEach(row=>{
+    const cells=[row.latCell,row.lonCell,row.provinceCell,row.wardCell,row.tr.querySelector(".index")];
+    if(safeIntersects(range,row.tr)||cells.some(cell=>safeIntersects(range,cell)))selected.push(row);
+  });
+  return selected;
+}
+function handleCopy(event){
+  const selectedRows=getSelectedRowsInTable();
+  if(selectedRows.length===0)return;
+  const nonEmptyRows=selectedRows.filter(row=>rowToArray(row).some(v=>v!==""));
+  const rowsToCopy=nonEmptyRows.length?nonEmptyRows:selectedRows;
+  event.preventDefault();
+  const text=rowsToTsv(rowsToCopy,false);
+  event.clipboardData.setData("text/plain",text);
+  event.clipboardData.setData("text/html","<table>"+rowsToCopy.map(row=>"<tr>"+rowToArray(row).map(v=>"<td>"+String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</td>").join("")+"</tr>").join("")+"</table>");
+  setStatus("Đã copy "+rowsToCopy.length+" dòng đã tô đen.");
+}
+
+function snapshot(){
+  return getRows().map(row=>({
+    lat:getCoordText(row.latInput),lon:getCoordText(row.lonInput),
+    latNote:row.latNote.textContent.trim(),lonNote:row.lonNote.textContent.trim(),
+    latClass:row.latCell.className,lonClass:row.lonCell.className,
+    province:row.provinceCell.textContent.trim(),ward:row.wardCell.textContent.trim(),
+    rowStatus:row.tr.dataset.status||"",provinceClass:row.provinceCell.className,wardClass:row.wardCell.className
+  }));
+}
+function sameSnapshot(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function pushUndoState(beforeState){
+  if(isRestoring)return;
+  const state=beforeState||snapshot();
+  const last=undoStack[undoStack.length-1];
+  if(!last||!sameSnapshot(last,state)){undoStack.push(state);if(undoStack.length>80)undoStack.shift();}
+  redoStack=[];updateButtons();
+}
+function restoreSnapshot(state){
+  isRestoring=true;tbody.innerHTML="";
+  const frag=document.createDocumentFragment();
+  state.forEach((item,i)=>frag.appendChild(makeRowElement(i+1)));
+  tbody.appendChild(frag);
+  const rows=getRows();
+  state.forEach((item,i)=>{
+    const row=rows[i];
+    row.latInput.textContent=item.lat||"";row.lonInput.textContent=item.lon||"";
+    row.latNote.textContent=item.latNote||"";row.lonNote.textContent=item.lonNote||"";
+    row.latCell.className=item.latClass||"lat";row.lonCell.className=item.lonClass||"lon";
+    row.provinceCell.textContent=item.province||"";row.wardCell.textContent=item.ward||"";
+    row.tr.dataset.status=item.rowStatus||"";
+    row.provinceCell.className=item.provinceClass||"province";row.wardCell.className=item.wardClass||"ward";
+    validateRow(row);
+  });
+  renumberRows();isRestoring=false;updateButtons();
+}
+function undo(){if(undoStack.length===0)return;const current=snapshot();const previous=undoStack.pop();redoStack.push(current);restoreSnapshot(previous);setStatus("Đã undo.");}
+function redo(){if(redoStack.length===0)return;const current=snapshot();const next=redoStack.pop();undoStack.push(current);restoreSnapshot(next);setStatus("Đã redo.");}
+
+function getErrorRows(){return getRows().filter(row=>row.tr.dataset.status==="api-error");}
+function isValidNumericText(text){
+  const t=cleanNumberText(text);
+  if(t==="")return true;
+  return /^\d+(\.\d+)?$/.test(t);
+}
+
+function validateCoord(row,type){
+  const input=type==="lat"?row.latInput:row.lonInput;
+  const cell=type==="lat"?row.latCell:row.lonCell;
+  const note=type==="lat"?row.latNote:row.lonNote;
+  const raw=getCoordText(input);
+  const text=cleanNumberText(raw);
+
+  if(raw===""){cell.classList.remove("invalid");note.textContent="";return {empty:true,valid:true,reason:""};}
+
+  if(!isValidNumericText(raw)){
+    cell.classList.add("invalid");note.textContent="Không hợp lệ";return {empty:false,valid:false,reason:"invalid"};
+  }
+
+  const value=Number(text);
+  const limit=LIMITS[type];
+
+  if(!Number.isFinite(value)){
+    cell.classList.add("invalid");note.textContent="Không hợp lệ";return {empty:false,valid:false,reason:"invalid"};
+  }
+
+  if(value<limit.min||value>limit.max){
+    cell.classList.add("invalid");note.textContent="Nằm ngoài Việt Nam";return {empty:false,valid:false,reason:"outside"};
+  }
+
+  cell.classList.remove("invalid");note.textContent="";
+  return {empty:false,valid:true,reason:""};
+}
+
+function validateRow(row){
+  const latStatus=validateCoord(row,"lat");
+  const lonStatus=validateCoord(row,"lon");
+  const valid=latStatus.valid&&lonStatus.valid&&!latStatus.empty&&!lonStatus.empty;
+
+  row.tr.dataset.valid=valid?"1":"0";
+
+  if(row.callBtn)row.callBtn.disabled=!valid||isRunning;
+
+  return {latStatus,lonStatus,valid};
+}
+
+function updateButtons(){
+  const rows=getRows();
+  const hasValidRow=rows.some(row=>row.tr.dataset.valid==="1");
+  const hasValidApiErrorRow=rows.some(row=>row.tr.dataset.valid==="1"&&row.tr.dataset.status==="api-error");
+
+  undoBtn.disabled=undoStack.length===0;
+  redoBtn.disabled=redoStack.length===0;
+  retryErrorsBtn.disabled=!hasValidApiErrorRow||isRunning;
+  addRowBtn.disabled=tbody.querySelectorAll("tr").length>=MAX_ROWS||isRunning;
+  lookupBtn.disabled=!hasValidRow||isRunning;
+  copyAllBtn.disabled=isRunning;
+
+  rows.forEach(row=>{
+    if(row.callBtn){
+      row.callBtn.disabled=row.tr.dataset.valid!=="1"||isRunning;
+    }
+  });
+}
+
+function validateVisibleControls(){
+  getRows().forEach(validateRow);
+  updateButtons();
+}
+
+function addRows(count,saveHistory=false){
+  const current=tbody.querySelectorAll("tr").length;
+  const allowed=Math.max(0,Math.min(count,MAX_ROWS-current));
+  if(allowed<=0){setStatus("Đã đạt giới hạn "+MAX_ROWS+" dòng.");return 0;}
+  if(saveHistory)pushUndoState();
+  const frag=document.createDocumentFragment();
+  for(let i=0;i<allowed;i++)frag.appendChild(makeRowElement(current+i+1));
+  tbody.appendChild(frag);
+  updateButtons();
+  return allowed;
+}
+
+function addRow(saveHistory=true){return addRows(1,saveHistory);}
+function createDefaultRows(){tbody.innerHTML="";addRows(DEFAULT_ROWS,false);updateButtons();}
+function renumberRows(){Array.from(tbody.querySelectorAll("tr")).forEach((tr,i)=>tr.querySelector(".index").textContent=i+1);}
+
+function getValidRowsToLookup(){
+  const out=[];
+  getRows().forEach(row=>{
+    const hasAny=getCoordText(row.latInput)!==""||getCoordText(row.lonInput)!=="";
+    if(hasAny&&validateRow(row).valid)out.push(row);
+  });
+  return out;
+}
+function countInvalidRowsWithData(){
+  let n=0;
+  getRows().forEach(row=>{
+    const hasAny=getCoordText(row.latInput)!==""||getCoordText(row.lonInput)!=="";
+    if(hasAny&&!validateRow(row).valid)n++;
+  });
+  return n;
+}
+
+function validLatLon(lat,lon){
+  return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=LIMITS.lat.min&&lat<=LIMITS.lat.max&&lon>=LIMITS.lon.min&&lon<=LIMITS.lon.max;
+}
+function clearResult(row,skipButtons=false){
+  row.provinceCell.textContent="";row.wardCell.textContent="";
+  row.provinceCell.className="province";row.wardCell.className="ward";row.tr.dataset.status="";
+  if(!skipButtons)updateButtons();
+}
+function markApiError(row,text){
+  row.provinceCell.className="province api-error";row.wardCell.className="ward";
+  row.provinceCell.textContent=text||"Lỗi API";row.wardCell.textContent="";row.tr.dataset.status="api-error";updateButtons();
+}
+
+async function fetchText(url,timeoutMs=70000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const res=await fetch(url,{method:"GET",cache:"no-store",signal:controller.signal});
+    const text=await res.text();
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    return text.trim();
+  }finally{clearTimeout(timer);}
+}
+async function wakeApi(){
+  updateLoading(
+    "Đang đánh thức máy chủ API...",
+    "Render có thể cần vài chục giây để khởi động nếu đang sleep"
+  );
+
+  try{
+    await fetchText(API_BASE+"/health",90000);
+    updateLoading("Máy chủ đã sẵn sàng","Bắt đầu tra cứu dữ liệu");
+    return true;
+  }catch(e){
+    updateLoading(
+      "Không xác nhận được trạng thái máy chủ",
+      "Ứng dụng vẫn sẽ thử gọi endpoint tra cứu"
+    );
+    return false;
+  }
+}
+
+async function lookupOne(row){
+  const validation=validateRow(row);
+  if(!validation.valid){
+    row.provinceCell.textContent="Không gọi API";
+    row.provinceCell.className="province skipped";
+    row.wardCell.textContent="";
+    row.wardCell.className="ward";
+    row.tr.dataset.status="invalid";
+    updateButtons();
+    return false;
+  }
+
+  const lat=parseNumber(getCoordText(row.latInput));
+  const lon=parseNumber(getCoordText(row.lonInput));
+
+  if(!validLatLon(lat,lon)){
+    row.provinceCell.textContent="Không gọi API";
+    row.provinceCell.className="province skipped";
+    row.wardCell.textContent="";
+    row.wardCell.className="ward";
+    row.tr.dataset.status="invalid";
+    updateButtons();
+    return false;
+  }
+
+  clearResult(row);
+  const url=API_BASE+"/lookup_text?lat="+encodeURIComponent(lat.toFixed(6))+"&lon="+encodeURIComponent(lon.toFixed(6));
+
+  for(let attempt=0;attempt<=MAX_API_RETRIES;attempt++){
+    row.provinceCell.className="province loading";row.wardCell.className="ward";row.tr.dataset.status="loading";
+    row.provinceCell.innerHTML='<span class="row-spinner"></span>'+
+      (attempt===0?"Đang tra...":"Lỗi API, gọi lại "+attempt+"/"+MAX_API_RETRIES+"...");
+    updateButtons();
+
+    try{
+      const result=await fetchText(url,70000);
+      row.provinceCell.className="province";row.wardCell.className="ward";
+
+      if(!result||result==="NOT_FOUND"){
+        row.provinceCell.textContent="Không tìm thấy";row.provinceCell.classList.add("not-found");
+        row.tr.dataset.status="not-found";updateButtons();return false;
+      }
+
+      const parts=result.split("|");
+      const ward=(parts[0]||"").trim();
+      const province=(parts[1]||"").trim();
+
+      row.provinceCell.textContent=province;row.wardCell.textContent=ward;
+      row.provinceCell.classList.add("ok");row.wardCell.classList.add("ok");row.tr.dataset.status="ok";
+      updateButtons();return true;
+    }catch(e){
+      if(attempt<MAX_API_RETRIES){await sleep(RETRY_DELAY_MS);continue;}
+      markApiError(row,e.name==="AbortError"?"Timeout API sau "+MAX_API_RETRIES+" lần gọi lại":"Lỗi API sau "+MAX_API_RETRIES+" lần gọi lại");
+      return false;
+    }
+  }
+  markApiError(row,"Lỗi API");return false;
+}
+
+async function runLookupRows(rowsToLookup,label){
+  if(rowsToLookup.length===0){
+    const invalid=countInvalidRowsWithData();
+    if(invalid>0)setStatus("Có "+invalid+" dòng Lat/Lon không hợp lệ nên không gọi API.");
+    else setStatus(label==="retry"?"Không có dòng lỗi API hợp lệ để gọi lại.":"Chưa có dòng Lat/Lon hợp lệ để gọi API.");
+    return;
+  }
+
+  pushUndoState();
+  isRunning=true;validateVisibleControls();updateButtons();
+
+  lookupBtn.dataset.originalText=lookupBtn.textContent;
+  lookupBtn.innerHTML='<span class="row-spinner"></span>Đang xử lý';
+  startLoading(
+    "Đang đánh thức máy chủ API...",
+    "Render có thể cần vài chục giây để khởi động nếu đang sleep"
+  );
+  setStatus("Đang đánh thức API...");
+  await wakeApi();
+
+  let ok=0,fail=0;
+
+  for(let i=0;i<rowsToLookup.length;i++){
+    setStatus("Đang tra "+(i+1)+"/"+rowsToLookup.length);
+    updateLoading(
+      "Đang tra cứu vị trí "+(i+1)+"/"+rowsToLookup.length,
+      "API đang xử lý lần lượt từng dòng"
+    );
+    const isOk=await lookupOne(rowsToLookup[i]);
+    if(isOk)ok++;else fail++;
+    if(i<rowsToLookup.length-1)await sleep(DELAY_MS);
+  }
+
+  const invalid=countInvalidRowsWithData();
+  setStatus("Xong. Thành công: "+ok+", lỗi/không tìm thấy: "+fail+(invalid>0?", bỏ qua không hợp lệ: "+invalid:"")+".");
+  isRunning=false;
+  lookupBtn.textContent=lookupBtn.dataset.originalText||"Tra cứu";
+  stopLoading();
+  validateVisibleControls();
+  updateButtons();
+}
+
+async function lookupAll(){await runLookupRows(getValidRowsToLookup(),"all");}
+async function retryErrorRows(){
+  const rows=getErrorRows().filter(row=>validateRow(row).valid);
+  await runLookupRows(rows,"retry");
+}
+async function lookupSingleRow(row){await runLookupRows([row].filter(r=>validateRow(r).valid),"single");}
+
+function deleteRow(tr){
+  pushUndoState();tr.remove();
+  if(tbody.querySelectorAll("tr").length===0)addRow(false);
+  renumberRows();validateVisibleControls();updateButtons();setStatus("Đã xóa dòng.");
+}
+
+function handleInput(event){
+  const input=event.target;
+  if(!input.classList.contains("coord-input"))return;
+  const row=getRows().find(r=>r.latInput===input||r.lonInput===input);
+  if(row){
+    validateRow(row);
+    clearResult(row,true);
+    updateButtons();
+  }
+}
+function handleFocus(event){
+  const input=event.target;
+  if(!input.classList.contains("coord-input"))return;
+  editSnapshot=snapshot();
+}
+function handleBlur(event){
+  const input=event.target;
+  if(!input.classList.contains("coord-input"))return;
+  const row=getRows().find(r=>r.latInput===input||r.lonInput===input);
+  if(row)validateRow(row);
+  if(editSnapshot&&!sameSnapshot(editSnapshot,snapshot()))pushUndoState(editSnapshot);
+  editSnapshot=null;
+}
+
+function splitPasteLine(line){
+  if(line.includes("\t"))return line.split("\t");
+  if(line.includes(";"))return line.split(";");
+  if(line.includes(","))return line.split(",");
+  return line.trim().split(/\s+/);
+}
+function handlePasteIntoTable(event){
+  const target=event.target;
+  if(!target.classList.contains("coord-input"))return;
+  const text=event.clipboardData.getData("text");
+  if(!text)return;
+
+  const before=snapshot();
+  event.preventDefault();
+
+  const rows=getRows();
+  const startTr=target.closest("tr");
+  const startRowIndex=rows.findIndex(r=>r.tr===startTr);
+  const isLon=target.closest("td").classList.contains("lon");
+  const startCol=isLon?1:0;
+  const lines=text.split(/\r?\n/).filter(line=>line.trim()!=="");
+  const maxLines=Math.min(lines.length,MAX_ROWS-startRowIndex);
+
+  const neededRows=startRowIndex+maxLines-tbody.querySelectorAll("tr").length;
+  if(neededRows>0)addRows(neededRows,false);
+
+  const updatedRows=getRows();
+
+  for(let r=0;r<maxLines;r++){
+    const rowIndex=startRowIndex+r;
+    const cells=splitPasteLine(lines[r]).map(v=>String(v).trim()).filter(v=>v!=="");
+
+    if(cells.length===1){
+      if(startCol===0)updatedRows[rowIndex].latInput.textContent=cells[0];
+      else updatedRows[rowIndex].lonInput.textContent=cells[0];
+    }else if(cells.length>=2){
+      if(startCol===0){
+        updatedRows[rowIndex].latInput.textContent=cells[0];
+        updatedRows[rowIndex].lonInput.textContent=cells[1];
+      }else{
+        updatedRows[rowIndex].lonInput.textContent=cells[0];
+      }
+    }
+
+    validateRow(updatedRows[rowIndex]);
+    clearResult(updatedRows[rowIndex],true);
+  }
+
+  updateButtons();
+
+  if(lines.length>maxLines)setStatus("Chỉ dán tối đa đến giới hạn "+MAX_ROWS+" dòng.");
+  else setStatus("Đã dán "+maxLines+" dòng.");
+
+  pushUndoState(before);
+}
+
+function handleKeyboardShortcuts(event){
+  if(!event.ctrlKey&&!event.metaKey)return;
+  const key=event.key.toLowerCase();
+  if(key==="z"){event.preventDefault();undo();}
+  if(key==="y"){event.preventDefault();redo();}
+}
+
+tbody.addEventListener("click",event=>{
+  const target=event.target;
+  const tr=target.closest("tr");
+  if(!tr)return;
+  if(target.classList.contains("delete-row"))deleteRow(tr);
+  if(target.classList.contains("call-row")){
+    const row=getRows().find(row=>row.tr===tr);
+    if(row)lookupSingleRow(row);
+  }
+});
+
+lookupBtn.addEventListener("click",lookupAll);
+retryErrorsBtn.addEventListener("click",retryErrorRows);
+addRowBtn.addEventListener("click",()=>{addRow(true);setStatus("Đã thêm dòng.");});
+copyAllBtn.addEventListener("click",copyAllRows);
+undoBtn.addEventListener("click",undo);
+redoBtn.addEventListener("click",redo);
+
+tbody.addEventListener("input",handleInput);
+tbody.addEventListener("focus",handleFocus,true);
+tbody.addEventListener("blur",handleBlur,true);
+tbody.addEventListener("paste",handlePasteIntoTable);
+document.addEventListener("copy",handleCopy);
+document.addEventListener("keydown",handleKeyboardShortcuts);
+
+createDefaultRows();
+</script>
+</body>
+</html>

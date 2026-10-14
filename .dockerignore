@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.git/
+*.bak
+*.tmp
+data/*.zip
+data/full_json_generated_data_*.json
+data/wards_full.geojson
+data/wards_full.geojson.gz
