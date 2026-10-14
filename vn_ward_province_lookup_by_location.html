@@ -59,6 +59,12 @@
     tr.selected-row td.index{background-color:#93c5fd!important;color:#1e3a8a!important;font-weight:bold}
     tr.selected-row td.row-actions{background:white!important}
     
+    /* Ghost row at bottom of table */
+    tr.ghost-row{opacity:0.35;transition:opacity .18s ease, background-color .18s ease}
+    tr.ghost-row:hover,tr.ghost-row:focus-within{opacity:1;background-color:#f8fafc}
+    tr.ghost-row td.index{color:#94a3b8}
+    tr.ghost-row:hover td.index,tr.ghost-row:focus-within td.index{color:#1e3a8a;font-weight:bold}
+    
     .lat,.lon{width:125px}
     .col-curr-prov,.col-curr-ward{width:190px}
     .col-hist-ward,.col-hist-dist,.col-hist-prov{width:175px}
@@ -304,7 +310,7 @@ async function copyText(text,message,btn){
 }
 
 function copyAllRows(){
-  const rows=getRows();
+  const rows=getRows().filter(r=>!r.tr.classList.contains("ghost-row")||rowToArray(r).some(v=>v!==""));
   const rowsWithData=rows.filter(row=>rowToArray(row).some(v=>v!==""));
   const text=rowsToTsv(rowsWithData.length?rowsWithData:rows,true);
   copyText(text,"Đã copy toàn bộ "+(rowsWithData.length||rows.length)+" dòng (kèm dữ liệu hiện hành & lịch sử).","copyAllBtn");
@@ -427,7 +433,8 @@ function snapshot(){
     histWard:row.histWardCell.textContent.trim(),histDist:row.histDistCell.textContent.trim(),histProv:row.histProvCell.textContent.trim(),
     rowStatus:row.tr.dataset.status||"",
     provinceClass:row.provinceCell.className,wardClass:row.wardCell.className,
-    histWardClass:row.histWardCell.className,histDistClass:row.histDistCell.className,histProvClass:row.histProvCell.className
+    histWardClass:row.histWardCell.className,histDistClass:row.histDistCell.className,histProvClass:row.histProvCell.className,
+    isGhost:row.tr.classList.contains("ghost-row")
   }));
 }
 function sameSnapshot(a,b){return JSON.stringify(a)===JSON.stringify(b);}
@@ -441,7 +448,11 @@ function pushUndoState(beforeState){
 function restoreSnapshot(state){
   isRestoring=true;tbody.innerHTML="";
   const frag=document.createDocumentFragment();
-  state.forEach((item,i)=>frag.appendChild(makeRowElement(i+1)));
+  state.forEach((item,i)=>{
+    const tr=makeRowElement(i+1);
+    if(item.isGhost)tr.classList.add("ghost-row");
+    frag.appendChild(tr);
+  });
   tbody.appendChild(frag);
   const rows=getRows();
   state.forEach((item,i)=>{
@@ -458,6 +469,7 @@ function restoreSnapshot(state){
     row.histProvCell.className=item.histProvClass||"hist-col hist-province";
     validateRow(row);
   });
+  ensureGhostRow();
   renumberRows();isRestoring=false;clearRowSelection();updateButtons();
 }
 function undo(){if(undoStack.length===0)return;const current=snapshot();const previous=undoStack.pop();redoStack.push(current);restoreSnapshot(previous);setStatus("Đã undo.");}
@@ -527,20 +539,41 @@ function validateVisibleControls(){
   updateButtons();
 }
 
+function ensureGhostRow(){
+  const allTrs=Array.from(tbody.querySelectorAll("tr"));
+  if(allTrs.length>=MAX_ROWS)return;
+  const lastTr=allTrs[allTrs.length-1];
+  if(!lastTr||!lastTr.classList.contains("ghost-row")){
+    const newTr=makeRowElement(allTrs.length+1);
+    newTr.classList.add("ghost-row");
+    newTr.title="Dòng thêm mới (nhấp để tạo dòng và nhập liệu)";
+    tbody.appendChild(newTr);
+    renumberRows();
+    updateButtons();
+  }
+}
+
 function addRows(count,saveHistory=false){
-  const current=tbody.querySelectorAll("tr").length;
-  const allowed=Math.max(0,Math.min(count,MAX_ROWS-current));
+  const ghostTr=tbody.querySelector("tr.ghost-row");
+  const currentTotal=tbody.querySelectorAll("tr").length;
+  const allowed=Math.max(0,Math.min(count,MAX_ROWS-currentTotal));
   if(allowed<=0){setStatus("Đã đạt giới hạn "+MAX_ROWS+" dòng.");return 0;}
   if(saveHistory)pushUndoState();
   const frag=document.createDocumentFragment();
-  for(let i=0;i<allowed;i++)frag.appendChild(makeRowElement(current+i+1));
-  tbody.appendChild(frag);
+  for(let i=0;i<allowed;i++)frag.appendChild(makeRowElement(currentTotal+i+1));
+  if(ghostTr){
+    tbody.insertBefore(frag,ghostTr);
+  }else{
+    tbody.appendChild(frag);
+  }
+  ensureGhostRow();
+  renumberRows();
   updateButtons();
   return allowed;
 }
 
 function addRow(saveHistory=true){return addRows(1,saveHistory);}
-function createDefaultRows(){tbody.innerHTML="";addRows(DEFAULT_ROWS,false);updateButtons();}
+function createDefaultRows(){tbody.innerHTML="";addRows(DEFAULT_ROWS,false);ensureGhostRow();updateButtons();}
 function renumberRows(){Array.from(tbody.querySelectorAll("tr")).forEach((tr,i)=>tr.querySelector(".index").textContent=i+1);}
 
 function getValidRowsToLookup(){
@@ -720,7 +753,12 @@ async function lookupSingleRow(row){await runLookupRows([row].filter(r=>validate
 
 function deleteRow(tr){
   pushUndoState();tr.remove();
-  if(tbody.querySelectorAll("tr").length===0)addRow(false);
+  const nonGhosts=tbody.querySelectorAll("tr:not(.ghost-row)");
+  if(nonGhosts.length===0){
+    tbody.innerHTML="";
+    addRows(1,false);
+  }
+  ensureGhostRow();
   renumberRows();validateVisibleControls();updateButtons();updateSelectionUI();setStatus("Đã xóa dòng.");
 }
 
@@ -737,6 +775,12 @@ function handleInput(event){
 function handleFocus(event){
   const input=event.target;
   if(!input.classList.contains("coord-input"))return;
+  const tr=input.closest("tr");
+  if(tr&&tr.classList.contains("ghost-row")){
+    tr.classList.remove("ghost-row");
+    tr.removeAttribute("title");
+    ensureGhostRow();
+  }
   editSnapshot=snapshot();
 }
 function handleBlur(event){
@@ -759,6 +803,12 @@ function handlePasteIntoTable(event){
   if(!target.classList.contains("coord-input"))return;
   const text=event.clipboardData.getData("text");
   if(!text)return;
+
+  const targetTr=target.closest("tr");
+  if(targetTr&&targetTr.classList.contains("ghost-row")){
+    targetTr.classList.remove("ghost-row");
+    targetTr.removeAttribute("title");
+  }
 
   const before=snapshot();
   event.preventDefault();
@@ -796,6 +846,7 @@ function handlePasteIntoTable(event){
     clearResult(updatedRows[rowIndex],true);
   }
 
+  ensureGhostRow();
   updateButtons();
 
   if(lines.length>maxLines)setStatus("Chỉ dán tối đa đến giới hạn "+MAX_ROWS+" dòng.");
@@ -925,6 +976,15 @@ tbody.addEventListener("click",event=>{
   if(!target.closest("td.index")){
     if(tbody.querySelectorAll("tr.selected-row").length>0){
       clearRowSelection();
+    }
+  }
+
+  // If clicking on ghost row (outside action buttons or index), focus lat input to activate it
+  if(tr.classList.contains("ghost-row")&&!target.closest("button")&&!target.closest("td.index")){
+    const latInp=tr.querySelector(".lat .coord-input");
+    if(latInp&&document.activeElement!==latInp){
+      latInp.focus();
+      return;
     }
   }
 
