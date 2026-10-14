@@ -6,3 +6,4 @@ __pycache__/
 data/wards_full.geojson
 data/wards_full.geojson.gz
 data/*.zip
+data/historical_*.json
