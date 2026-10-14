@@ -34,22 +34,40 @@
     @keyframes slide{0%{transform:translateX(-120%)}50%{transform:translateX(190%)}100%{transform:translateX(420%)}}
     .table-box{background:white;border:1px solid #d8dee9;border-radius:10px;margin-top:14px;overflow-x:auto;overflow-y:visible}
     table{width:100%;min-width:1320px;border-collapse:collapse;background:white;user-select:text;-webkit-user-select:text}
+    ::selection{background:#bfdbfe;color:#0f172a}
     th,td{border:1px solid #cfd8e3;padding:8px;min-height:24px;text-align:left;vertical-align:top;user-select:text;-webkit-user-select:text;font-size:13px}
     th{position:sticky;top:0;z-index:20;background:#eaf1f8;font-weight:bold}
     th.group-header{text-align:center;font-size:13px;padding:6px 8px}
     th.group-current{background:#e6f4ea;color:#137333;border-bottom:1px solid #b7e1cd}
     th.group-historical{background:#fef7e0;color:#b06000;border-bottom:1px solid #fce8b2}
     .badge-time{display:inline-block;font-size:11px;font-weight:normal;padding:2px 7px;border-radius:10px;margin-left:6px;background:rgba(255,255,255,0.85);border:1px solid currentColor}
-    td.lat,td.lon{background:#fffdf2}
-    td.lat:focus-within,td.lon:focus-within{background:#fff7cc}
-    .coord-input{display:block;width:100%;min-height:24px;line-height:24px;background:transparent;outline:none;padding:0;margin:0}
-    td.invalid{background:#fee2e2!important;color:#991b1b}
-    td.invalid .coord-input{background:transparent!important;color:#991b1b}
-    .cell-note{font-size:11px;color:#b91c1c;margin-top:3px;line-height:1.25;min-height:13px}
-    .index{width:40px;text-align:center;color:#6b7280;vertical-align:middle}
-    .lat,.lon{width:125px}
-    .col-curr-prov,.col-curr-ward{width:190px}
-    .col-hist-ward,.col-hist-dist,.col-hist-prov{width:175px}
+    
+    /* Input hit area improvements */
+    td.lat,td.lon{background:#fffdf5;cursor:text;padding:6px;width:140px;position:relative}
+    td.lat:hover,td.lon:hover{background:#fefce8}
+    td.lat:focus-within,td.lon:focus-within{background:#fef08a!important}
+    .coord-input{display:block;width:100%;min-height:38px;line-height:24px;padding:6px 10px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:6px;outline:none;font-size:13px;color:#0f172a;box-sizing:border-box;cursor:text;transition:border-color .15s ease,box-shadow .15s ease}
+    .coord-input:hover{border-color:#94a3b8}
+    .coord-input:focus{border-color:#2563eb;background:#ffffff;box-shadow:0 0 0 3px rgba(37,99,235,0.18)}
+    .coord-input:empty::before{content:attr(data-placeholder);color:#94a3b8;pointer-events:none;font-style:italic;font-size:12px}
+    td.invalid .coord-input{border-color:#ef4444!important;background:#fef2f2!important;box-shadow:0 0 0 3px rgba(239,68,68,0.15)!important}
+    .cell-note{font-size:11px;color:#b91c1c;margin-top:3px;line-height:1.25;min-height:14px;padding-left:2px}
+    
+    /* Index column & Row selection styles */
+    .index{width:46px;text-align:center;color:#6b7280;vertical-align:middle;user-select:none;-webkit-user-select:none;cursor:pointer}
+    td.index{background:#f8fafc;font-weight:600;color:#475569;transition:background .15s}
+    td.index:hover{background:#e2e8f0;color:#0f172a}
+    th.index:hover{background:#d8e4f0}
+    
+    tr.selected-row td{background-color:#dbeafe!important;color:#0f172a}
+    tr.selected-row td.index{background-color:#93c5fd!important;color:#1e3a8a!important;font-weight:bold}
+    tr.selected-row td.lat,tr.selected-row td.lon{background-color:#dbeafe!important}
+    tr.selected-row .coord-input{background-color:#ffffff!important;border-color:#60a5fa!important}
+    tr.selected-row td.hist-col{background-color:#e0f2fe!important}
+    
+    .lat,.lon{width:140px}
+    .col-curr-prov,.col-curr-ward{width:185px}
+    .col-hist-ward,.col-hist-dist,.col-hist-prov{width:170px}
     .row-actions{width:115px;text-align:center;vertical-align:middle;user-select:none}
     .not-found{color:#b91c1c}.loading{color:#b45309}.ok{color:#166534}.api-error{color:#b91c1c;font-weight:bold}
     .skipped{color:#6b7280}
@@ -70,6 +88,7 @@
           <button id="lookupBtn">Tra cứu</button>
           <button id="retryErrorsBtn" class="secondary" disabled>Gọi lại dòng lỗi API</button>
           <button id="addRowBtn" class="secondary">Thêm dòng</button>
+          <button id="copySelectedBtn" class="secondary" disabled>Copy dòng chọn</button>
           <button id="copyAllBtn" class="secondary">Copy toàn bộ</button>
           <button id="undoBtn" class="icon" title="Undo - Ctrl+Z" aria-label="Undo">↶</button>
           <button id="redoBtn" class="icon" title="Redo - Ctrl+Y" aria-label="Redo">↷</button>
@@ -84,7 +103,8 @@
           </div>
         </div>
         <div class="note">
-          • <strong>Tọa độ hợp lệ:</strong> Lat: 8 – 24 | Lon: 102 – 110. Hỗ trợ dán dữ liệu nhiều dòng từ Excel (Ctrl+V).<br>
+          • <strong>Tọa độ hợp lệ:</strong> Lat: 8 – 24 | Lon: 102 – 110. Hỗ trợ dán dữ liệu nhiều dòng từ Excel (Ctrl+V). Nhấn vào ô hoặc viền để nhập nhanh.<br>
+          • <strong>Tô đen & Copy dòng:</strong> Nhấp hoặc kéo chuột trên cột <strong>#</strong> (hoặc Shift-click, kéo bôi đen chuột) để tô đen các dòng, sau đó nhấn <strong>Ctrl+C</strong> hoặc nút <strong>Copy dòng chọn</strong>.<br>
           • <strong>Mốc hiện hành:</strong> 34 Tỉnh/Thành phố và 3.321 Xã/Phường (mô hình 2 cấp tinh gọn, từ 20/09/2026).<br>
           • <strong>Mốc lịch sử:</strong> 63 Tỉnh/Thành phố, 696 Quận/Huyện và 10.035 Xã/Phường (mô hình 3 cấp, áp dụng trước 01/03/2025).
         </div>
@@ -95,7 +115,7 @@
       <table id="lookupTable">
         <thead>
           <tr>
-            <th class="index" rowspan="2">#</th>
+            <th class="index" rowspan="2" id="thIndex" title="Nhấp để chọn tất cả hoặc bỏ chọn tất cả dòng">#</th>
             <th class="lat" rowspan="2">Lat</th>
             <th class="lon" rowspan="2">Lon</th>
             <th class="group-header group-current" colspan="2">
@@ -137,6 +157,7 @@ const lookupTable=document.getElementById("lookupTable");
 const lookupBtn=document.getElementById("lookupBtn");
 const retryErrorsBtn=document.getElementById("retryErrorsBtn");
 const addRowBtn=document.getElementById("addRowBtn");
+const copySelectedBtn=document.getElementById("copySelectedBtn");
 const copyAllBtn=document.getElementById("copyAllBtn");
 const undoBtn=document.getElementById("undoBtn");
 const redoBtn=document.getElementById("redoBtn");
@@ -152,6 +173,10 @@ let isRestoring=false;
 let isRunning=false;
 let loadingStartedAt=0;
 let loadingTimer=null;
+
+let isDraggingRows=false;
+let dragStartIndex=-1;
+let lastClickedRowIndex=-1;
 
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 function setStatus(text){statusText.textContent=text;}
@@ -188,9 +213,15 @@ function makeRowElement(rowNumber){
   const tr=document.createElement("tr");
   tr.dataset.status="";
   tr.innerHTML=`
-    <td class="index">${rowNumber}</td>
-    <td class="lat" data-type="lat"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
-    <td class="lon" data-type="lon"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
+    <td class="index" title="Nhấp hoặc kéo chuột để chọn / tô đen dòng">${rowNumber}</td>
+    <td class="lat" data-type="lat">
+      <div class="coord-input" contenteditable="plaintext-only" data-placeholder="vd: 10.7769"></div>
+      <div class="cell-note"></div>
+    </td>
+    <td class="lon" data-type="lon">
+      <div class="coord-input" contenteditable="plaintext-only" data-placeholder="vd: 106.7009"></div>
+      <div class="cell-note"></div>
+    </td>
     <td class="province curr-province"></td>
     <td class="ward curr-ward"></td>
     <td class="hist-col hist-ward"></td>
@@ -258,14 +289,15 @@ function rowsToTsv(rows,includeHeader=true){
   return lines.join("\n");
 }
 
-function flashCopyButton(){
-  const oldText=copyAllBtn.textContent;
-  copyAllBtn.textContent="Đã copy ✓";
-  copyAllBtn.classList.add("copied");
-  setTimeout(()=>{copyAllBtn.textContent=oldText;copyAllBtn.classList.remove("copied");},1200);
+function flashCopyButton(btn){
+  const targetBtn=btn||copyAllBtn;
+  const oldText=targetBtn.textContent;
+  targetBtn.textContent="Đã copy ✓";
+  targetBtn.classList.add("copied");
+  setTimeout(()=>{targetBtn.textContent=oldText;targetBtn.classList.remove("copied");},1200);
 }
 
-async function copyText(text,message){
+async function copyText(text,message,btn){
   if(!text){setStatus("Không có nội dung để copy.");return false;}
   let ok=false;
   try{
@@ -278,7 +310,7 @@ async function copyText(text,message){
     try{ok=document.execCommand("copy");}catch(e){ok=false;}
     document.body.removeChild(ta);
   }
-  if(ok){setStatus(message||"Đã copy nội dung.");flashCopyButton();}
+  if(ok){setStatus(message||"Đã copy nội dung.");flashCopyButton(btn);}
   else setStatus("Không copy được. Hãy thử Ctrl+C sau khi tô đen.");
   return ok;
 }
@@ -287,7 +319,51 @@ function copyAllRows(){
   const rows=getRows();
   const rowsWithData=rows.filter(row=>rowToArray(row).some(v=>v!==""));
   const text=rowsToTsv(rowsWithData.length?rowsWithData:rows,true);
-  copyText(text,"Đã copy toàn bộ "+(rowsWithData.length||rows.length)+" dòng (kèm dữ liệu hiện hành & lịch sử).");
+  copyText(text,"Đã copy toàn bộ "+(rowsWithData.length||rows.length)+" dòng (kèm dữ liệu hiện hành & lịch sử).","copyAllBtn");
+}
+
+function getRowIndexFromTr(tr){
+  const trs=Array.from(tbody.querySelectorAll("tr"));
+  return trs.indexOf(tr);
+}
+
+function updateSelectionUI(){
+  const count=tbody.querySelectorAll("tr.selected-row").length;
+  if(copySelectedBtn){
+    copySelectedBtn.disabled=count===0;
+    copySelectedBtn.textContent=count>0?`Copy ${count} dòng chọn`:"Copy dòng chọn";
+  }
+}
+
+function clearRowSelection(){
+  tbody.querySelectorAll("tr.selected-row").forEach(tr=>tr.classList.remove("selected-row"));
+  updateSelectionUI();
+}
+
+function selectRowRange(startIdx,endIdx,preserveOther=false){
+  const trs=Array.from(tbody.querySelectorAll("tr"));
+  const min=Math.min(startIdx,endIdx);
+  const max=Math.max(startIdx,endIdx);
+  trs.forEach((tr,i)=>{
+    if(i>=min&&i<=max){
+      tr.classList.add("selected-row");
+    }else if(!preserveOther){
+      tr.classList.remove("selected-row");
+    }
+  });
+  updateSelectionUI();
+}
+
+function copySelectedRows(){
+  const allRows=getRows();
+  const selectedTrs=Array.from(tbody.querySelectorAll("tr.selected-row"));
+  const rowsToCopy=allRows.filter(r=>selectedTrs.includes(r.tr));
+  if(rowsToCopy.length===0){
+    setStatus("Chưa có dòng nào được chọn. Nhấp hoặc kéo cột # để tô đen chọn dòng.");
+    return;
+  }
+  const text=rowsToTsv(rowsToCopy,false);
+  copyText(text,"Đã copy "+rowsToCopy.length+" dòng đã chọn.",copySelectedBtn);
 }
 
 function nodeInsideTable(node){
@@ -313,19 +389,45 @@ function getSelectedRowsInTable(){
   });
   return selected;
 }
+
 function handleCopy(event){
-  const selectedRows=getSelectedRowsInTable();
-  if(selectedRows.length===0)return;
-  const nonEmptyRows=selectedRows.filter(row=>rowToArray(row).some(v=>v!==""));
-  const rowsToCopy=nonEmptyRows.length?nonEmptyRows:selectedRows;
+  const activeEl=document.activeElement;
+  const sel=window.getSelection();
+
+  // If user selected text strictly inside an active coord-input, allow native partial copy
+  if(activeEl&&activeEl.classList.contains("coord-input")&&sel&&!sel.isCollapsed){
+    if(activeEl.contains(sel.anchorNode)&&activeEl.contains(sel.focusNode)){
+      return;
+    }
+  }
+
+  // 1. Check if there are explicitly selected rows (tr.selected-row)
+  let selectedTrs=Array.from(tbody.querySelectorAll("tr.selected-row"));
+
+  // 2. If no .selected-row, check if native window.getSelection() spans table rows
+  if(selectedTrs.length===0){
+    const selectedFromRange=getSelectedRowsInTable();
+    if(selectedFromRange.length>0){
+      selectedTrs=selectedFromRange.map(r=>r.tr);
+    }
+  }
+
+  if(selectedTrs.length===0)return;
+
+  const allRows=getRows();
+  const rowsToCopy=allRows.filter(r=>selectedTrs.includes(r.tr));
+  if(rowsToCopy.length===0)return;
+
   event.preventDefault();
   const text=rowsToTsv(rowsToCopy,false);
+  const html="<table>"+rowsToCopy.map(row=>"<tr>"+rowToArray(row).map(v=>"<td>"+String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</td>").join("")+"</tr>").join("")+"</table>";
+
   event.clipboardData.setData("text/plain",text);
-  event.clipboardData.setData(
-    "text/html",
-    "<table>"+rowsToCopy.map(row=>"<tr>"+rowToArray(row).map(v=>"<td>"+String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</td>").join("")+"</tr>").join("")+"</table>"
-  );
-  setStatus("Đã copy "+rowsToCopy.length+" dòng đã tô đen.");
+  event.clipboardData.setData("text/html",html);
+
+  setStatus("Đã copy "+rowsToCopy.length+" dòng đã tô đen/chọn vào clipboard.");
+  if(copySelectedBtn&&!copySelectedBtn.disabled)flashCopyButton(copySelectedBtn);
+  else flashCopyButton(copyAllBtn);
 }
 
 function snapshot(){
@@ -368,7 +470,7 @@ function restoreSnapshot(state){
     row.histProvCell.className=item.histProvClass||"hist-col hist-province";
     validateRow(row);
   });
-  renumberRows();isRestoring=false;updateButtons();
+  renumberRows();isRestoring=false;clearRowSelection();updateButtons();
 }
 function undo(){if(undoStack.length===0)return;const current=snapshot();const previous=undoStack.pop();redoStack.push(current);restoreSnapshot(previous);setStatus("Đã undo.");}
 function redo(){if(redoStack.length===0)return;const current=snapshot();const next=redoStack.pop();undoStack.push(current);restoreSnapshot(next);setStatus("Đã redo.");}
@@ -631,7 +733,7 @@ async function lookupSingleRow(row){await runLookupRows([row].filter(r=>validate
 function deleteRow(tr){
   pushUndoState();tr.remove();
   if(tbody.querySelectorAll("tr").length===0)addRow(false);
-  renumberRows();validateVisibleControls();updateButtons();setStatus("Đã xóa dòng.");
+  renumberRows();validateVisibleControls();updateButtons();updateSelectionUI();setStatus("Đã xóa dòng.");
 }
 
 function handleInput(event){
@@ -715,26 +817,144 @@ function handlePasteIntoTable(event){
 }
 
 function handleKeyboardShortcuts(event){
+  if(event.key==="Escape"){
+    clearRowSelection();
+    return;
+  }
   if(!event.ctrlKey&&!event.metaKey)return;
   const key=event.key.toLowerCase();
   if(key==="z"){event.preventDefault();undo();}
   if(key==="y"){event.preventDefault();redo();}
+  if(key==="a"){
+    const active=document.activeElement;
+    if(!active||!active.classList.contains("coord-input")){
+      event.preventDefault();
+      const trs=Array.from(tbody.querySelectorAll("tr"));
+      trs.forEach(tr=>tr.classList.add("selected-row"));
+      updateSelectionUI();
+      setStatus("Đã chọn tất cả "+trs.length+" dòng. Nhấn Ctrl+C để copy.");
+    }
+  }
+}
+
+// Mouse events on row index for selecting/dragging rows
+tbody.addEventListener("mousedown",event=>{
+  const indexTd=event.target.closest("td.index");
+  if(!indexTd)return;
+
+  event.preventDefault(); // prevent native text selection cursor during row drag
+  const tr=indexTd.closest("tr");
+  if(!tr)return;
+  const currIdx=getRowIndexFromTr(tr);
+  if(currIdx===-1)return;
+
+  if(event.shiftKey&&lastClickedRowIndex>=0){
+    selectRowRange(lastClickedRowIndex,currIdx,false);
+  }else if(event.ctrlKey||event.metaKey){
+    tr.classList.toggle("selected-row");
+    lastClickedRowIndex=currIdx;
+    updateSelectionUI();
+  }else{
+    clearRowSelection();
+    tr.classList.add("selected-row");
+    isDraggingRows=true;
+    dragStartIndex=currIdx;
+    lastClickedRowIndex=currIdx;
+    updateSelectionUI();
+  }
+});
+
+tbody.addEventListener("mousemove",event=>{
+  if(!isDraggingRows)return;
+  const indexTd=event.target.closest("td.index");
+  if(!indexTd)return;
+  const tr=indexTd.closest("tr");
+  if(!tr)return;
+  const currIdx=getRowIndexFromTr(tr);
+  if(currIdx!==-1&&dragStartIndex!==-1){
+    selectRowRange(dragStartIndex,currIdx,false);
+  }
+});
+
+document.addEventListener("mouseup",()=>{
+  if(isDraggingRows){
+    isDraggingRows=false;
+    const count=tbody.querySelectorAll("tr.selected-row").length;
+    if(count>0){
+      setStatus("Đã tô đen "+count+" dòng. Nhấn Ctrl+C hoặc nút 'Copy "+count+" dòng chọn' để copy.");
+    }
+  }
+});
+
+// Auto-detect browser native multi-row drag selection
+document.addEventListener("selectionchange",()=>{
+  if(document.activeElement&&document.activeElement.classList.contains("coord-input"))return;
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed||sel.rangeCount===0)return;
+  const range=sel.getRangeAt(0);
+  if(!nodeInsideTable(range.startContainer)&&!nodeInsideTable(range.endContainer))return;
+
+  const selectedRows=getSelectedRowsInTable();
+  if(selectedRows.length>1){
+    selectedRows.forEach(r=>r.tr.classList.add("selected-row"));
+    updateSelectionUI();
+  }
+});
+
+// Click header # to toggle all rows
+const thIndex=document.getElementById("thIndex");
+if(thIndex){
+  thIndex.addEventListener("click",()=>{
+    const trs=Array.from(tbody.querySelectorAll("tr"));
+    const selectedCount=tbody.querySelectorAll("tr.selected-row").length;
+    if(selectedCount===trs.length){
+      clearRowSelection();
+      setStatus("Đã bỏ chọn tất cả dòng.");
+    }else{
+      trs.forEach(tr=>tr.classList.add("selected-row"));
+      updateSelectionUI();
+      setStatus("Đã chọn tất cả "+trs.length+" dòng. Nhấn Ctrl+C để copy.");
+    }
+  });
 }
 
 tbody.addEventListener("click",event=>{
   const target=event.target;
   const tr=target.closest("tr");
   if(!tr)return;
-  if(target.classList.contains("delete-row"))deleteRow(tr);
+
+  if(target.classList.contains("delete-row")){
+    deleteRow(tr);
+    return;
+  }
   if(target.classList.contains("call-row")){
     const row=getRows().find(row=>row.tr===tr);
     if(row)lookupSingleRow(row);
+    return;
+  }
+
+  // Click delegation: click anywhere in td.lat or td.lon automatically focuses .coord-input
+  const cell=target.closest("td.lat, td.lon");
+  if(cell){
+    const input=cell.querySelector(".coord-input");
+    if(input&&document.activeElement!==input){
+      input.focus();
+      try{
+        const sel=window.getSelection();
+        const range=document.createRange();
+        range.selectNodeContents(input);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }catch(e){}
+    }
   }
 });
 
 lookupBtn.addEventListener("click",lookupAll);
 retryErrorsBtn.addEventListener("click",retryErrorRows);
 addRowBtn.addEventListener("click",()=>{addRow(true);setStatus("Đã thêm dòng.");});
+copySelectedBtn.addEventListener("click",copySelectedRows);
 copyAllBtn.addEventListener("click",copyAllRows);
 undoBtn.addEventListener("click",undo);
 redoBtn.addEventListener("click",redo);
