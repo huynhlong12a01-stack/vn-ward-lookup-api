@@ -42,19 +42,15 @@
     th.group-historical{background:#fef7e0;color:#b06000;border-bottom:1px solid #fce8b2}
     .badge-time{display:inline-block;font-size:11px;font-weight:normal;padding:2px 7px;border-radius:10px;margin-left:6px;background:rgba(255,255,255,0.85);border:1px solid currentColor}
     
-    /* Input hit area improvements */
-    td.lat,td.lon{background:#fffdf5;cursor:text;padding:6px;width:140px;position:relative}
-    td.lat:hover,td.lon:hover{background:#fefce8}
-    td.lat:focus-within,td.lon:focus-within{background:#fef08a!important}
-    .coord-input{display:block;width:100%;min-height:38px;line-height:24px;padding:6px 10px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:6px;outline:none;font-size:13px;color:#0f172a;box-sizing:border-box;cursor:text;transition:border-color .15s ease,box-shadow .15s ease}
-    .coord-input:hover{border-color:#94a3b8}
-    .coord-input:focus{border-color:#2563eb;background:#ffffff;box-shadow:0 0 0 3px rgba(37,99,235,0.18)}
-    .coord-input:empty::before{content:attr(data-placeholder);color:#94a3b8;pointer-events:none;font-style:italic;font-size:12px}
-    td.invalid .coord-input{border-color:#ef4444!important;background:#fef2f2!important;box-shadow:0 0 0 3px rgba(239,68,68,0.15)!important}
-    .cell-note{font-size:11px;color:#b91c1c;margin-top:3px;line-height:1.25;min-height:14px;padding-left:2px}
+    td.lat,td.lon{background:#fffdf2;cursor:text}
+    td.lat:focus-within,td.lon:focus-within{background:#fff7cc}
+    .coord-input{display:block;width:100%;min-height:24px;line-height:24px;background:transparent;outline:none;padding:0;margin:0}
+    td.invalid{background:#fee2e2!important;color:#991b1b}
+    td.invalid .coord-input{background:transparent!important;color:#991b1b}
+    .cell-note{font-size:11px;color:#b91c1c;margin-top:3px;line-height:1.25;min-height:13px}
     
     /* Index column & Row selection styles */
-    .index{width:46px;text-align:center;color:#6b7280;vertical-align:middle;user-select:none;-webkit-user-select:none;cursor:pointer}
+    .index{width:40px;text-align:center;color:#6b7280;vertical-align:middle;user-select:none;-webkit-user-select:none;cursor:pointer}
     td.index{background:#f8fafc;font-weight:600;color:#475569;transition:background .15s}
     td.index:hover{background:#e2e8f0;color:#0f172a}
     th.index:hover{background:#d8e4f0}
@@ -62,12 +58,11 @@
     tr.selected-row td{background-color:#dbeafe!important;color:#0f172a}
     tr.selected-row td.index{background-color:#93c5fd!important;color:#1e3a8a!important;font-weight:bold}
     tr.selected-row td.lat,tr.selected-row td.lon{background-color:#dbeafe!important}
-    tr.selected-row .coord-input{background-color:#ffffff!important;border-color:#60a5fa!important}
     tr.selected-row td.hist-col{background-color:#e0f2fe!important}
     
-    .lat,.lon{width:140px}
-    .col-curr-prov,.col-curr-ward{width:185px}
-    .col-hist-ward,.col-hist-dist,.col-hist-prov{width:170px}
+    .lat,.lon{width:125px}
+    .col-curr-prov,.col-curr-ward{width:190px}
+    .col-hist-ward,.col-hist-dist,.col-hist-prov{width:175px}
     .row-actions{width:115px;text-align:center;vertical-align:middle;user-select:none}
     .not-found{color:#b91c1c}.loading{color:#b45309}.ok{color:#166534}.api-error{color:#b91c1c;font-weight:bold}
     .skipped{color:#6b7280}
@@ -103,7 +98,7 @@
           </div>
         </div>
         <div class="note">
-          • <strong>Tọa độ hợp lệ:</strong> Lat: 8 – 24 | Lon: 102 – 110. Hỗ trợ dán dữ liệu nhiều dòng từ Excel (Ctrl+V). Nhấn vào ô hoặc viền để nhập nhanh.<br>
+          • <strong>Tọa độ hợp lệ:</strong> Lat: 8 – 24 | Lon: 102 – 110. Hỗ trợ dán dữ liệu nhiều dòng từ Excel (Ctrl+V). Nhấp vào ô để nhập liệu.<br>
           • <strong>Tô đen & Copy dòng:</strong> Nhấp hoặc kéo chuột trên cột <strong>#</strong> (hoặc Shift-click, kéo bôi đen chuột) để tô đen các dòng, sau đó nhấn <strong>Ctrl+C</strong> hoặc nút <strong>Copy dòng chọn</strong>.<br>
           • <strong>Mốc hiện hành:</strong> 34 Tỉnh/Thành phố và 3.321 Xã/Phường (mô hình 2 cấp tinh gọn, từ 20/09/2026).<br>
           • <strong>Mốc lịch sử:</strong> 63 Tỉnh/Thành phố, 696 Quận/Huyện và 10.035 Xã/Phường (mô hình 3 cấp, áp dụng trước 01/03/2025).
@@ -214,14 +209,8 @@ function makeRowElement(rowNumber){
   tr.dataset.status="";
   tr.innerHTML=`
     <td class="index" title="Nhấp hoặc kéo chuột để chọn / tô đen dòng">${rowNumber}</td>
-    <td class="lat" data-type="lat">
-      <div class="coord-input" contenteditable="plaintext-only" data-placeholder="vd: 10.7769"></div>
-      <div class="cell-note"></div>
-    </td>
-    <td class="lon" data-type="lon">
-      <div class="coord-input" contenteditable="plaintext-only" data-placeholder="vd: 106.7009"></div>
-      <div class="cell-note"></div>
-    </td>
+    <td class="lat" data-type="lat"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
+    <td class="lon" data-type="lon"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
     <td class="province curr-province"></td>
     <td class="ward curr-ward"></td>
     <td class="hist-col hist-ward"></td>
