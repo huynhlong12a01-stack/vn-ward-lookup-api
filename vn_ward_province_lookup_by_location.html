@@ -55,10 +55,9 @@
     td.index:hover{background:#e2e8f0;color:#0f172a}
     th.index:hover{background:#d8e4f0}
     
-    tr.selected-row td{background-color:#dbeafe!important;color:#0f172a}
+    tr.selected-row td:not(.row-actions){background-color:#dbeafe!important;color:#0f172a}
     tr.selected-row td.index{background-color:#93c5fd!important;color:#1e3a8a!important;font-weight:bold}
-    tr.selected-row td.lat,tr.selected-row td.lon{background-color:#dbeafe!important}
-    tr.selected-row td.hist-col{background-color:#e0f2fe!important}
+    tr.selected-row td.row-actions{background:white!important}
     
     .lat,.lon{width:125px}
     .col-curr-prov,.col-curr-ward{width:190px}
@@ -844,6 +843,12 @@ tbody.addEventListener("mousedown",event=>{
     lastClickedRowIndex=currIdx;
     updateSelectionUI();
   }else{
+    const selectedRows=tbody.querySelectorAll("tr.selected-row");
+    if(selectedRows.length===1&&selectedRows[0]===tr){
+      clearRowSelection();
+      lastClickedRowIndex=-1;
+      return;
+    }
     clearRowSelection();
     tr.classList.add("selected-row");
     isDraggingRows=true;
@@ -875,30 +880,15 @@ document.addEventListener("mouseup",()=>{
   }
 });
 
-// Auto-detect browser native multi-row drag selection
-document.addEventListener("selectionchange",()=>{
-  if(document.activeElement&&document.activeElement.classList.contains("coord-input"))return;
-  const sel=window.getSelection();
-  if(!sel||sel.isCollapsed||sel.rangeCount===0)return;
-  const range=sel.getRangeAt(0);
-  if(!nodeInsideTable(range.startContainer)&&!nodeInsideTable(range.endContainer))return;
-
-  const selectedRows=getSelectedRowsInTable();
-  if(selectedRows.length>1){
-    selectedRows.forEach(r=>r.tr.classList.add("selected-row"));
-    updateSelectionUI();
-  }
-});
-
-// Click header # to toggle all rows
+// Click header # to toggle all rows on / off
 const thIndex=document.getElementById("thIndex");
 if(thIndex){
   thIndex.addEventListener("click",()=>{
     const trs=Array.from(tbody.querySelectorAll("tr"));
     const selectedCount=tbody.querySelectorAll("tr.selected-row").length;
-    if(selectedCount===trs.length){
+    if(selectedCount>0){
       clearRowSelection();
-      setStatus("Đã bỏ chọn tất cả dòng.");
+      setStatus("Đã tắt tô đen / bỏ chọn tất cả dòng.");
     }else{
       trs.forEach(tr=>tr.classList.add("selected-row"));
       updateSelectionUI();
@@ -906,6 +896,15 @@ if(thIndex){
     }
   });
 }
+
+// Click outside table or on normal cells deselects rows
+document.addEventListener("click",event=>{
+  if(!event.target.closest("#lookupTable")&&!event.target.closest("#copySelectedBtn")){
+    if(tbody.querySelectorAll("tr.selected-row").length>0){
+      clearRowSelection();
+    }
+  }
+});
 
 tbody.addEventListener("click",event=>{
   const target=event.target;
@@ -922,20 +921,19 @@ tbody.addEventListener("click",event=>{
     return;
   }
 
+  // Clicking any cell other than index turns off row selection
+  if(!target.closest("td.index")){
+    if(tbody.querySelectorAll("tr.selected-row").length>0){
+      clearRowSelection();
+    }
+  }
+
   // Click delegation: click anywhere in td.lat or td.lon automatically focuses .coord-input
   const cell=target.closest("td.lat, td.lon");
   if(cell){
     const input=cell.querySelector(".coord-input");
     if(input&&document.activeElement!==input){
       input.focus();
-      try{
-        const sel=window.getSelection();
-        const range=document.createRange();
-        range.selectNodeContents(input);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }catch(e){}
     }
   }
 });
