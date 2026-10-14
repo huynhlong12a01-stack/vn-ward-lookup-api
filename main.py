@@ -104,6 +104,8 @@ def lookup_core(lat: float, lon: float):
                 "area_km2": row["area_km2"],
 
                 # Thông tin đơn vị hành chính lịch sử đối ứng (áp dụng trước 01/03/2025)
+                "historical_ward_name": row["historical_ward_name"],
+                "historical_ward_full_name": row["historical_ward_full_name"],
                 "historical_district_code": row["historical_district_code"],
                 "historical_district_name": row["historical_district_name"],
                 "historical_district_full_name": row["historical_district_full_name"],
@@ -130,6 +132,7 @@ def lookup_core(lat: float, lon: float):
                     "applied_timeframe": row["historical_applied_timeframe"] or TIMEFRAME_HISTORICAL,
                     "effective_to": row["historical_effective_to"] or EFFECTIVE_TO_HISTORICAL,
                     "legal_basis": "Trước QĐ 19/2025/QĐ-TTg (Thời kỳ 63 tỉnh/thành & cấp Quận/Huyện)",
+                    "ward_name": row["historical_ward_full_name"] or row["historical_ward_name"] or row["ward_full_name"],
                     "district_code": row["historical_district_code"],
                     "district_name": row["historical_district_full_name"] or row["historical_district_name"],
                     "district_short_name": row["historical_district_name"],
@@ -412,10 +415,11 @@ def lookup_text(
     province_en = result.get("province_name_en") or result.get("province_name") or ""
 
     if include_historical:
-        hist_d = result.get("historical_district_name") or ""
+        hist_w = result.get("historical_ward_name") or result.get("ward_name") or ""
+        hist_d = result.get("historical_district_full_name") or result.get("historical_district_name") or ""
         hist_p = result.get("historical_province_name") or ""
         return PlainTextResponse(
-            f"{ward_en}|{province_en}|{hist_d}|{hist_p}",
+            f"{ward_en}|{province_en}|{hist_w}|{hist_d}|{hist_p}",
             headers={"Cache-Control": "no-store"}
         )
 

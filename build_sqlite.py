@@ -172,6 +172,8 @@ def main():
             area_km2 REAL,
             applied_timeframe TEXT,
             effective_from TEXT,
+            historical_ward_name TEXT,
+            historical_ward_full_name TEXT,
             historical_district_code TEXT,
             historical_district_name TEXT,
             historical_district_full_name TEXT,
@@ -426,6 +428,8 @@ def main():
             geom_blob = zlib.compress(geom.wkb, level=9)
 
             # Ánh xạ lịch sử cho xã này
+            hist_w_name = None
+            hist_w_full_name = None
             hist_d_code = None
             hist_d_name = None
             hist_d_full_name = None
@@ -435,6 +439,8 @@ def main():
 
             if w_code in hist_ward_map:
                 hw, hd, hp = hist_ward_map[w_code]
+                hist_w_name = hw.get("Name")
+                hist_w_full_name = hw.get("FullName")
                 hist_d_code = str(hd.get("Code", "")).zfill(3)
                 hist_d_name = hd.get("Name")
                 hist_d_full_name = hd.get("FullName")
@@ -443,6 +449,8 @@ def main():
                 hist_p_full_name = hp.get("FullName")
             elif w_code in SPECIAL_ISLAND_MAPPINGS:
                 m = SPECIAL_ISLAND_MAPPINGS[w_code]
+                hist_w_name = m[1]
+                hist_w_full_name = m[2]
                 hist_d_code = m[0]
                 hist_d_name = m[1]
                 hist_d_full_name = m[2]
@@ -469,6 +477,8 @@ def main():
                 props.get("areaKm2"),
                 TIMEFRAME_CURRENT,
                 EFFECTIVE_FROM_CURRENT,
+                hist_w_name,
+                hist_w_full_name,
                 hist_d_code,
                 hist_d_name,
                 hist_d_full_name,
@@ -504,6 +514,8 @@ def main():
                     area_km2,
                     applied_timeframe,
                     effective_from,
+                    historical_ward_name,
+                    historical_ward_full_name,
                     historical_district_code,
                     historical_district_name,
                     historical_district_full_name,
@@ -518,7 +530,7 @@ def main():
                     maxy,
                     geom_wkb_zlib
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, row)
             ward_count += 1
 

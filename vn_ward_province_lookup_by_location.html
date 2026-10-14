@@ -3,15 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tra cứu xã/tỉnh</title>
+  <title>Tra cứu xã/tỉnh hiện hành & lịch sử</title>
   <style>
     body{font-family:Arial,sans-serif;margin:0;background:#f6f8fb;color:#111827}
-    .wrap{max-width:1040px;margin:0 auto;padding:16px}
+    .wrap{max-width:1440px;margin:0 auto;padding:16px}
     .sticky-panel{position:sticky;top:0;z-index:30;background:#f6f8fb;padding:12px 0;border-bottom:1px solid #d8dee9}
-    .panel-inner{background:white;border:1px solid #d8dee9;border-radius:10px;padding:12px}
-    h2{margin:0 0 10px;font-size:20px}
+    .panel-inner{background:white;border:1px solid #d8dee9;border-radius:10px;padding:14px}
+    h2{margin:0 0 6px;font-size:20px;color:#0f172a}
+    .subheading{font-size:13px;color:#475569;margin-bottom:10px}
     .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    button{padding:8px 12px;border:0;border-radius:6px;background:#1565c0;color:white;font-weight:bold;cursor:pointer;white-space:nowrap}
+    button{padding:8px 13px;border:0;border-radius:6px;background:#1565c0;color:white;font-weight:bold;cursor:pointer;white-space:nowrap;font-size:13px}
     button.secondary{background:#e5edf7;color:#14345c}
     button.danger{background:#fee2e2;color:#991b1b}
     button.icon{width:38px;height:34px;padding:0;font-size:20px;line-height:1;background:#e5edf7;color:#14345c}
@@ -32,29 +33,39 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slide{0%{transform:translateX(-120%)}50%{transform:translateX(190%)}100%{transform:translateX(420%)}}
     .table-box{background:white;border:1px solid #d8dee9;border-radius:10px;margin-top:14px;overflow-x:auto;overflow-y:visible}
-    table{width:100%;min-width:980px;border-collapse:collapse;background:white;user-select:text;-webkit-user-select:text}
-    th,td{border:1px solid #cfd8e3;padding:8px;min-height:24px;text-align:left;vertical-align:top;user-select:text;-webkit-user-select:text}
+    table{width:100%;min-width:1320px;border-collapse:collapse;background:white;user-select:text;-webkit-user-select:text}
+    th,td{border:1px solid #cfd8e3;padding:8px;min-height:24px;text-align:left;vertical-align:top;user-select:text;-webkit-user-select:text;font-size:13px}
     th{position:sticky;top:0;z-index:20;background:#eaf1f8;font-weight:bold}
+    th.group-header{text-align:center;font-size:13px;padding:6px 8px}
+    th.group-current{background:#e6f4ea;color:#137333;border-bottom:1px solid #b7e1cd}
+    th.group-historical{background:#fef7e0;color:#b06000;border-bottom:1px solid #fce8b2}
+    .badge-time{display:inline-block;font-size:11px;font-weight:normal;padding:2px 7px;border-radius:10px;margin-left:6px;background:rgba(255,255,255,0.85);border:1px solid currentColor}
     td.lat,td.lon{background:#fffdf2}
     td.lat:focus-within,td.lon:focus-within{background:#fff7cc}
     .coord-input{display:block;width:100%;min-height:24px;line-height:24px;background:transparent;outline:none;padding:0;margin:0}
     td.invalid{background:#fee2e2!important;color:#991b1b}
     td.invalid .coord-input{background:transparent!important;color:#991b1b}
     .cell-note{font-size:11px;color:#b91c1c;margin-top:3px;line-height:1.25;min-height:13px}
-    .index{width:44px;text-align:center;color:#6b7280;vertical-align:middle}
-    .lat,.lon{width:145px}
-    .province,.ward{width:230px}
-    .row-actions{width:120px;text-align:center;vertical-align:middle;user-select:none}
+    .index{width:40px;text-align:center;color:#6b7280;vertical-align:middle}
+    .lat,.lon{width:125px}
+    .col-curr-prov,.col-curr-ward{width:190px}
+    .col-hist-ward,.col-hist-dist,.col-hist-prov{width:175px}
+    .row-actions{width:115px;text-align:center;vertical-align:middle;user-select:none}
     .not-found{color:#b91c1c}.loading{color:#b45309}.ok{color:#166534}.api-error{color:#b91c1c;font-weight:bold}
     .skipped{color:#6b7280}
-    .note{font-size:12px;color:#6b7280;margin-top:8px;line-height:1.45}
+    td.hist-col{background:#fafaf9}
+    .note{font-size:12px;color:#64748b;margin-top:9px;line-height:1.5}
+    .note strong{color:#334155}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="sticky-panel">
       <div class="panel-inner">
-        <h2>Tra cứu xã/tỉnh từ Lat Lon</h2>
+        <h2>Tra cứu địa giới hành chính từ Lat / Lon</h2>
+        <div class="subheading">
+          Hỗ trợ đồng thời <strong>Đơn vị Hiện hành</strong> (từ 20/09/2026 - NQ 388/NQ-UBTVQH16) và <strong>Đơn vị Lịch sử</strong> (áp dụng trước 01/03/2025 - thời kỳ 63 tỉnh & cấp Quận/Huyện).
+        </div>
         <div class="actions">
           <button id="lookupBtn">Tra cứu</button>
           <button id="retryErrorsBtn" class="secondary" disabled>Gọi lại dòng lỗi API</button>
@@ -73,9 +84,9 @@
           </div>
         </div>
         <div class="note">
-          Tối đa 3000 dòng. Lat hợp lệ khoảng 8–24, Lon hợp lệ khoảng 102–110.
-          Không chặn nhập liệu; ô sai sẽ tô đỏ và báo “Không hợp lệ” hoặc “Nằm ngoài Việt Nam”.
-          Nút Tra cứu và nút ↻ từng dòng chỉ bật khi có Lat/Lon hợp lệ. Khi máy chủ đang khởi động hoặc xử lý, ứng dụng sẽ hiện hiệu ứng loading và thời gian đã chờ. API lỗi tự gọi lại tối đa 200 lần.
+          • <strong>Tọa độ hợp lệ:</strong> Lat: 8 – 24 | Lon: 102 – 110. Hỗ trợ dán dữ liệu nhiều dòng từ Excel (Ctrl+V).<br>
+          • <strong>Mốc hiện hành:</strong> 34 Tỉnh/Thành phố và 3.321 Xã/Phường (mô hình 2 cấp tinh gọn, từ 20/09/2026).<br>
+          • <strong>Mốc lịch sử:</strong> 63 Tỉnh/Thành phố, 696 Quận/Huyện và 10.035 Xã/Phường (mô hình 3 cấp, áp dụng trước 01/03/2025).
         </div>
       </div>
     </div>
@@ -84,12 +95,25 @@
       <table id="lookupTable">
         <thead>
           <tr>
-            <th class="index">#</th>
-            <th class="lat">Lat</th>
-            <th class="lon">Lon</th>
-            <th class="province">Tỉnh</th>
-            <th class="ward">Xã / Phường</th>
-            <th class="row-actions">Gọi/Xóa</th>
+            <th class="index" rowspan="2">#</th>
+            <th class="lat" rowspan="2">Lat</th>
+            <th class="lon" rowspan="2">Lon</th>
+            <th class="group-header group-current" colspan="2">
+              ĐƠN VỊ HIỆN HÀNH
+              <span class="badge-time">Từ 20/09/2026 (NQ 388/NQ-UBTVQH16)</span>
+            </th>
+            <th class="group-header group-historical" colspan="3">
+              ĐƠN VỊ LỊCH SỬ (CŨ)
+              <span class="badge-time">Trước 01/03/2025 (Thời kỳ 63 tỉnh & cấp Huyện)</span>
+            </th>
+            <th class="row-actions" rowspan="2">Gọi/Xóa</th>
+          </tr>
+          <tr>
+            <th class="col-curr-prov">Tỉnh / TP mới</th>
+            <th class="col-curr-ward">Xã / Phường mới</th>
+            <th class="col-hist-ward">Xã / Phường cũ</th>
+            <th class="col-hist-dist">Quận / Huyện cũ</th>
+            <th class="col-hist-prov">Tỉnh / TP cũ</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -167,8 +191,11 @@ function makeRowElement(rowNumber){
     <td class="index">${rowNumber}</td>
     <td class="lat" data-type="lat"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
     <td class="lon" data-type="lon"><div class="coord-input" contenteditable="plaintext-only"></div><div class="cell-note"></div></td>
-    <td class="province"></td>
-    <td class="ward"></td>
+    <td class="province curr-province"></td>
+    <td class="ward curr-ward"></td>
+    <td class="hist-col hist-ward"></td>
+    <td class="hist-col hist-district"></td>
+    <td class="hist-col hist-province"></td>
     <td class="row-actions">
       <button class="row-call call-row" type="button" title="Gọi API dòng này" aria-label="Gọi API dòng này" disabled>↻</button>
       <button class="small danger delete-row" type="button">Xóa</button>
@@ -185,8 +212,11 @@ function getRows(){
     lonInput:tr.querySelector(".lon .coord-input"),
     latNote:tr.querySelector(".lat .cell-note"),
     lonNote:tr.querySelector(".lon .cell-note"),
-    provinceCell:tr.querySelector(".province"),
-    wardCell:tr.querySelector(".ward"),
+    provinceCell:tr.querySelector(".curr-province"),
+    wardCell:tr.querySelector(".curr-ward"),
+    histWardCell:tr.querySelector(".hist-ward"),
+    histDistCell:tr.querySelector(".hist-district"),
+    histProvCell:tr.querySelector(".hist-province"),
     callBtn:tr.querySelector(".call-row"),
     deleteBtn:tr.querySelector(".delete-row")
   }));
@@ -197,12 +227,30 @@ function cleanNumberText(text){return String(text||"").trim().replace(",",".");}
 function parseNumber(text){return Number(cleanNumberText(text));}
 
 function rowToArray(row){
-  return [getCoordText(row.latInput),getCoordText(row.lonInput),row.provinceCell.textContent.trim(),row.wardCell.textContent.trim()];
+  return [
+    getCoordText(row.latInput),
+    getCoordText(row.lonInput),
+    row.provinceCell.textContent.trim(),
+    row.wardCell.textContent.trim(),
+    row.histWardCell.textContent.trim(),
+    row.histDistCell.textContent.trim(),
+    row.histProvCell.textContent.trim()
+  ];
 }
 
 function rowsToTsv(rows,includeHeader=true){
   const lines=[];
-  if(includeHeader)lines.push(["Lat","Lon","Tỉnh","Xã / Phường"].join("\t"));
+  if(includeHeader){
+    lines.push([
+      "Lat",
+      "Lon",
+      "Tỉnh mới (từ 20/09/2026)",
+      "Xã/Phường mới",
+      "Xã/Phường cũ (trước 01/03/2025)",
+      "Quận/Huyện cũ",
+      "Tỉnh cũ"
+    ].join("\t"));
+  }
   rows.forEach(row=>{
     const arr=rowToArray(row);
     if(arr.some(v=>v!==""))lines.push(arr.join("\t"));
@@ -239,7 +287,7 @@ function copyAllRows(){
   const rows=getRows();
   const rowsWithData=rows.filter(row=>rowToArray(row).some(v=>v!==""));
   const text=rowsToTsv(rowsWithData.length?rowsWithData:rows,true);
-  copyText(text,"Đã copy toàn bộ "+(rowsWithData.length||rows.length)+" dòng.");
+  copyText(text,"Đã copy toàn bộ "+(rowsWithData.length||rows.length)+" dòng (kèm dữ liệu hiện hành & lịch sử).");
 }
 
 function nodeInsideTable(node){
@@ -255,7 +303,12 @@ function getSelectedRowsInTable(){
   if(!nodeInsideTable(range.startContainer)&&!nodeInsideTable(range.endContainer)&&!safeIntersects(range,lookupTable))return [];
   const selected=[];
   getRows().forEach(row=>{
-    const cells=[row.latCell,row.lonCell,row.provinceCell,row.wardCell,row.tr.querySelector(".index")];
+    const cells=[
+      row.latCell,row.lonCell,
+      row.provinceCell,row.wardCell,
+      row.histWardCell,row.histDistCell,row.histProvCell,
+      row.tr.querySelector(".index")
+    ];
     if(safeIntersects(range,row.tr)||cells.some(cell=>safeIntersects(range,cell)))selected.push(row);
   });
   return selected;
@@ -268,7 +321,10 @@ function handleCopy(event){
   event.preventDefault();
   const text=rowsToTsv(rowsToCopy,false);
   event.clipboardData.setData("text/plain",text);
-  event.clipboardData.setData("text/html","<table>"+rowsToCopy.map(row=>"<tr>"+rowToArray(row).map(v=>"<td>"+String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</td>").join("")+"</tr>").join("")+"</table>");
+  event.clipboardData.setData(
+    "text/html",
+    "<table>"+rowsToCopy.map(row=>"<tr>"+rowToArray(row).map(v=>"<td>"+String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</td>").join("")+"</tr>").join("")+"</table>"
+  );
   setStatus("Đã copy "+rowsToCopy.length+" dòng đã tô đen.");
 }
 
@@ -278,7 +334,10 @@ function snapshot(){
     latNote:row.latNote.textContent.trim(),lonNote:row.lonNote.textContent.trim(),
     latClass:row.latCell.className,lonClass:row.lonCell.className,
     province:row.provinceCell.textContent.trim(),ward:row.wardCell.textContent.trim(),
-    rowStatus:row.tr.dataset.status||"",provinceClass:row.provinceCell.className,wardClass:row.wardCell.className
+    histWard:row.histWardCell.textContent.trim(),histDist:row.histDistCell.textContent.trim(),histProv:row.histProvCell.textContent.trim(),
+    rowStatus:row.tr.dataset.status||"",
+    provinceClass:row.provinceCell.className,wardClass:row.wardCell.className,
+    histWardClass:row.histWardCell.className,histDistClass:row.histDistCell.className,histProvClass:row.histProvCell.className
   }));
 }
 function sameSnapshot(a,b){return JSON.stringify(a)===JSON.stringify(b);}
@@ -301,8 +360,12 @@ function restoreSnapshot(state){
     row.latNote.textContent=item.latNote||"";row.lonNote.textContent=item.lonNote||"";
     row.latCell.className=item.latClass||"lat";row.lonCell.className=item.lonClass||"lon";
     row.provinceCell.textContent=item.province||"";row.wardCell.textContent=item.ward||"";
+    row.histWardCell.textContent=item.histWard||"";row.histDistCell.textContent=item.histDist||"";row.histProvCell.textContent=item.histProv||"";
     row.tr.dataset.status=item.rowStatus||"";
-    row.provinceCell.className=item.provinceClass||"province";row.wardCell.className=item.wardClass||"ward";
+    row.provinceCell.className=item.provinceClass||"curr-province";row.wardCell.className=item.wardClass||"curr-ward";
+    row.histWardCell.className=item.histWardClass||"hist-col hist-ward";
+    row.histDistCell.className=item.histDistClass||"hist-col hist-district";
+    row.histProvCell.className=item.histProvClass||"hist-col hist-province";
     validateRow(row);
   });
   renumberRows();isRestoring=false;updateButtons();
@@ -321,54 +384,47 @@ function validateCoord(row,type){
   const input=type==="lat"?row.latInput:row.lonInput;
   const cell=type==="lat"?row.latCell:row.lonCell;
   const note=type==="lat"?row.latNote:row.lonNote;
-  const raw=getCoordText(input);
-  const text=cleanNumberText(raw);
+  const text=getCoordText(input);
 
-  if(raw===""){cell.classList.remove("invalid");note.textContent="";return {empty:true,valid:true,reason:""};}
+  cell.classList.remove("invalid");
+  note.textContent="";
 
-  if(!isValidNumericText(raw)){
-    cell.classList.add("invalid");note.textContent="Không hợp lệ";return {empty:false,valid:false,reason:"invalid"};
+  if(text===""){return {ok:true,empty:true};}
+  if(!isValidNumericText(text)){
+    cell.classList.add("invalid");
+    note.textContent="Không hợp lệ";
+    return {ok:false,empty:false};
   }
 
-  const value=Number(text);
+  const num=parseNumber(text);
   const limit=LIMITS[type];
-
-  if(!Number.isFinite(value)){
-    cell.classList.add("invalid");note.textContent="Không hợp lệ";return {empty:false,valid:false,reason:"invalid"};
+  if(num<limit.min||num>limit.max){
+    cell.classList.add("invalid");
+    note.textContent="Nằm ngoài Việt Nam";
+    return {ok:false,empty:false};
   }
 
-  if(value<limit.min||value>limit.max){
-    cell.classList.add("invalid");note.textContent="Nằm ngoài Việt Nam";return {empty:false,valid:false,reason:"outside"};
-  }
-
-  cell.classList.remove("invalid");note.textContent="";
-  return {empty:false,valid:true,reason:""};
+  return {ok:true,empty:false,val:num};
 }
 
 function validateRow(row){
-  const latStatus=validateCoord(row,"lat");
-  const lonStatus=validateCoord(row,"lon");
-  const valid=latStatus.valid&&lonStatus.valid&&!latStatus.empty&&!lonStatus.empty;
-
-  row.tr.dataset.valid=valid?"1":"0";
-
-  if(row.callBtn)row.callBtn.disabled=!valid||isRunning;
-
-  return {latStatus,lonStatus,valid};
+  const latRes=validateCoord(row,"lat");
+  const lonRes=validateCoord(row,"lon");
+  const bothFilled=!latRes.empty&&!lonRes.empty;
+  const bothValid=latRes.ok&&lonRes.ok&&bothFilled;
+  row.tr.dataset.valid=bothValid?"1":"0";
+  return {valid:bothValid,filled:bothFilled};
 }
 
 function updateButtons(){
   const rows=getRows();
-  const hasValidRow=rows.some(row=>row.tr.dataset.valid==="1");
-  const hasValidApiErrorRow=rows.some(row=>row.tr.dataset.valid==="1"&&row.tr.dataset.status==="api-error");
-
-  undoBtn.disabled=undoStack.length===0;
-  redoBtn.disabled=redoStack.length===0;
-  retryErrorsBtn.disabled=!hasValidApiErrorRow||isRunning;
-  addRowBtn.disabled=tbody.querySelectorAll("tr").length>=MAX_ROWS||isRunning;
-  lookupBtn.disabled=!hasValidRow||isRunning;
-  copyAllBtn.disabled=isRunning;
-
+  const validRows=getValidRowsToLookup();
+  const errorRows=getErrorRows().filter(row=>validateRow(row).valid);
+  lookupBtn.disabled=validRows.length===0||isRunning;
+  retryErrorsBtn.disabled=errorRows.length===0||isRunning;
+  addRowBtn.disabled=rows.length>=MAX_ROWS||isRunning;
+  undoBtn.disabled=undoStack.length===0||isRunning;
+  redoBtn.disabled=redoStack.length===0||isRunning;
   rows.forEach(row=>{
     if(row.callBtn){
       row.callBtn.disabled=row.tr.dataset.valid!=="1"||isRunning;
@@ -417,41 +473,41 @@ function countInvalidRowsWithData(){
 function validLatLon(lat,lon){
   return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=LIMITS.lat.min&&lat<=LIMITS.lat.max&&lon>=LIMITS.lon.min&&lon<=LIMITS.lon.max;
 }
+
 function clearResult(row,skipButtons=false){
   row.provinceCell.textContent="";row.wardCell.textContent="";
-  row.provinceCell.className="province";row.wardCell.className="ward";row.tr.dataset.status="";
+  row.histWardCell.textContent="";row.histDistCell.textContent="";row.histProvCell.textContent="";
+  row.provinceCell.className="curr-province";row.wardCell.className="curr-ward";
+  row.histWardCell.className="hist-col hist-ward";row.histDistCell.className="hist-col hist-district";row.histProvCell.className="hist-col hist-province";
+  row.tr.dataset.status="";
   if(!skipButtons)updateButtons();
 }
+
 function markApiError(row,text){
-  row.provinceCell.className="province api-error";row.wardCell.className="ward";
-  row.provinceCell.textContent=text||"Lỗi API";row.wardCell.textContent="";row.tr.dataset.status="api-error";updateButtons();
+  row.provinceCell.className="curr-province api-error";
+  row.provinceCell.textContent=text||"Lỗi API";
+  row.wardCell.textContent="";row.histWardCell.textContent="";row.histDistCell.textContent="";row.histProvCell.textContent="";
+  row.tr.dataset.status="api-error";updateButtons();
 }
 
-async function fetchText(url,timeoutMs=70000){
+async function fetchJson(url,timeoutMs=70000){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
-    const res=await fetch(url,{method:"GET",cache:"no-store",signal:controller.signal});
-    const text=await res.text();
+    const res=await fetch(url,{method:"GET",cache:"no-store",headers:{"Accept":"application/json"},signal:controller.signal});
     if(!res.ok)throw new Error("HTTP "+res.status);
-    return text.trim();
+    return await res.json();
   }finally{clearTimeout(timer);}
 }
-async function wakeApi(){
-  updateLoading(
-    "Đang đánh thức máy chủ API...",
-    "Render có thể cần vài chục giây để khởi động nếu đang sleep"
-  );
 
+async function wakeApi(){
+  updateLoading("Đang đánh thức máy chủ API...","Render có thể cần vài chục giây để khởi động nếu đang sleep");
   try{
-    await fetchText(API_BASE+"/health",90000);
+    await fetch(API_BASE+"/health",{cache:"no-store"});
     updateLoading("Máy chủ đã sẵn sàng","Bắt đầu tra cứu dữ liệu");
     return true;
   }catch(e){
-    updateLoading(
-      "Không xác nhận được trạng thái máy chủ",
-      "Ứng dụng vẫn sẽ thử gọi endpoint tra cứu"
-    );
+    updateLoading("Không xác nhận được trạng thái máy chủ","Ứng dụng vẫn sẽ thử gọi endpoint tra cứu");
     return false;
   }
 }
@@ -460,9 +516,8 @@ async function lookupOne(row){
   const validation=validateRow(row);
   if(!validation.valid){
     row.provinceCell.textContent="Không gọi API";
-    row.provinceCell.className="province skipped";
-    row.wardCell.textContent="";
-    row.wardCell.className="ward";
+    row.provinceCell.className="curr-province skipped";
+    row.wardCell.textContent="";row.histWardCell.textContent="";row.histDistCell.textContent="";row.histProvCell.textContent="";
     row.tr.dataset.status="invalid";
     updateButtons();
     return false;
@@ -473,38 +528,53 @@ async function lookupOne(row){
 
   if(!validLatLon(lat,lon)){
     row.provinceCell.textContent="Không gọi API";
-    row.provinceCell.className="province skipped";
-    row.wardCell.textContent="";
-    row.wardCell.className="ward";
+    row.provinceCell.className="curr-province skipped";
+    row.wardCell.textContent="";row.histWardCell.textContent="";row.histDistCell.textContent="";row.histProvCell.textContent="";
     row.tr.dataset.status="invalid";
     updateButtons();
     return false;
   }
 
   clearResult(row);
-  const url=API_BASE+"/lookup_text?lat="+encodeURIComponent(lat.toFixed(6))+"&lon="+encodeURIComponent(lon.toFixed(6));
+  const url=API_BASE+"/lookup?lat="+encodeURIComponent(lat.toFixed(6))+"&lon="+encodeURIComponent(lon.toFixed(6));
 
   for(let attempt=0;attempt<=MAX_API_RETRIES;attempt++){
-    row.provinceCell.className="province loading";row.wardCell.className="ward";row.tr.dataset.status="loading";
+    row.provinceCell.className="curr-province loading";
+    row.wardCell.className="curr-ward";
+    row.tr.dataset.status="loading";
     row.provinceCell.innerHTML='<span class="row-spinner"></span>'+
       (attempt===0?"Đang tra...":"Lỗi API, gọi lại "+attempt+"/"+MAX_API_RETRIES+"...");
     updateButtons();
 
     try{
-      const result=await fetchText(url,70000);
-      row.provinceCell.className="province";row.wardCell.className="ward";
+      const data=await fetchJson(url,70000);
 
-      if(!result||result==="NOT_FOUND"){
-        row.provinceCell.textContent="Không tìm thấy";row.provinceCell.classList.add("not-found");
+      if(!data||!data.found||!data.result){
+        row.provinceCell.className="curr-province not-found";
+        row.provinceCell.textContent="Không tìm thấy";
+        row.wardCell.textContent="";row.histWardCell.textContent="";row.histDistCell.textContent="";row.histProvCell.textContent="";
         row.tr.dataset.status="not-found";updateButtons();return false;
       }
 
-      const parts=result.split("|");
-      const ward=(parts[0]||"").trim();
-      const province=(parts[1]||"").trim();
+      const r=data.result;
+      const currP=r.province_name||r.province_full_name||"";
+      const currW=r.ward_name||r.ward_full_name||"";
+      const histW=r.historical_ward_name||r.historical_ward_full_name||(r.historical_period&&r.historical_period.ward_name)||currW||"";
+      const histD=r.historical_district_full_name||r.historical_district_name||"";
+      const histP=r.historical_province_name||r.historical_province_full_name||"";
 
-      row.provinceCell.textContent=province;row.wardCell.textContent=ward;
-      row.provinceCell.classList.add("ok");row.wardCell.classList.add("ok");row.tr.dataset.status="ok";
+      row.provinceCell.textContent=currP;
+      row.wardCell.textContent=currW;
+      row.histWardCell.textContent=histW;
+      row.histDistCell.textContent=histD;
+      row.histProvCell.textContent=histP;
+
+      row.provinceCell.className="curr-province ok";
+      row.wardCell.className="curr-ward ok";
+      row.histWardCell.className="hist-col hist-ward ok";
+      row.histDistCell.className="hist-col hist-district ok";
+      row.histProvCell.className="hist-col hist-province ok";
+      row.tr.dataset.status="ok";
       updateButtons();return true;
     }catch(e){
       if(attempt<MAX_API_RETRIES){await sleep(RETRY_DELAY_MS);continue;}
@@ -528,23 +598,17 @@ async function runLookupRows(rowsToLookup,label){
 
   lookupBtn.dataset.originalText=lookupBtn.textContent;
   lookupBtn.innerHTML='<span class="row-spinner"></span>Đang xử lý';
-  startLoading(
-    "Đang đánh thức máy chủ API...",
-    "Render có thể cần vài chục giây để khởi động nếu đang sleep"
-  );
-  setStatus("Đang đánh thức API...");
+  startLoading("Đang kết nối máy chủ API...","Vui lòng chờ");
+  setStatus("Đang kiểm tra kết nối API...");
   await wakeApi();
 
   let ok=0,fail=0;
 
   for(let i=0;i<rowsToLookup.length;i++){
-    setStatus("Đang tra "+(i+1)+"/"+rowsToLookup.length);
-    updateLoading(
-      "Đang tra cứu vị trí "+(i+1)+"/"+rowsToLookup.length,
-      "API đang xử lý lần lượt từng dòng"
-    );
-    const isOk=await lookupOne(rowsToLookup[i]);
-    if(isOk)ok++;else fail++;
+    setStatus("Đang tra dòng "+(i+1)+"/"+rowsToLookup.length);
+    updateLoading("Đang tra cứu dữ liệu...","Tiến độ: "+(i+1)+"/"+rowsToLookup.length);
+    const success=await lookupOne(rowsToLookup[i]);
+    if(success)ok++;else fail++;
     if(i<rowsToLookup.length-1)await sleep(DELAY_MS);
   }
 
